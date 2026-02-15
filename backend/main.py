@@ -41,6 +41,8 @@ class HandoffTextRequest(BaseModel):
 class HandoffResponse(BaseModel):
     """Response structure for handoff intake."""
 
+    confidence: float = 0.0
+    reasoning: str | None = None
     patient_name: str | None = None
     room_number: str | None = None
     age: str | None = None

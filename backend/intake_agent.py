@@ -26,6 +26,8 @@ class IntakeAgentError(RuntimeError):
 class HandoffSummary:
     """Structured details extracted from a patient handoff transcript."""
 
+    confidence: float = 0.0
+    reasoning: Optional[str] = None
     patient_name: Optional[str] = None
     room_number: Optional[str] = None
     age: Optional[str] = None
@@ -128,7 +130,85 @@ class PatientIntakeAgent:
             {
                 "role": "system",
                 "content": (
-                    "You are a clinical documentation assistant. Return ONLY valid JSON with these keys: patient_name (string), room_number (string), age (string, not number), chief_complaint (string), medications (array of strings), pending_tasks (array of strings), vitals (object), safety_alerts (array of strings). Use null when information is missing."
+                    "You are a clinical documentation assistant applying STRICT CLINICAL SAFETY STANDARDS. "
+                    "Extract patient handoff information and return ONLY valid JSON.\n\n"
+                    
+                    "⚠️ CRITICAL INSTRUCTION: Evaluate patient_name FIRST. If missing, score within 0.15-0.30 based on OTHER factors.\n\n"
+                    
+                    "CONFIDENCE SCORING RULES (Apply the LOWEST applicable level):\n\n"
+                    
+                    "🚨 HARD STOP - Cannot safely proceed (0.15-0.30) - PATIENT NAME MISSING:\n"
+                    "Evaluate patient_name first. If missing, use these nuanced sub-ranges:\n\n"
+                    
+                    "  • 0.15-0.20: Missing patient_name + UNCERTAIN data\n"
+                    "    - Transcript contains uncertainty markers: 'maybe', 'I think', 'approximately', 'like', '?'\n"
+                    "    - Reasoning: 'Patient identity unknown AND data quality is poor with uncertainty markers. Handoff completely unusable.'\n\n"
+                    
+                    "  • 0.20-0.25: Missing patient_name + MULTIPLE other gaps (4+ fields missing)\n"
+                    "    - Missing patient_name plus 4 or more other fields (room, age, complaint, meds, tasks, vitals, alerts)\n"
+                    "    - Reasoning: 'Patient identity unknown AND multiple critical/important fields missing. Handoff unusable.'\n\n"
+                    
+                    "  • 0.25-0.30: Missing patient_name + OTHER data is clear/complete\n"
+                    "    - Missing ONLY patient_name, but all other fields are present and clear\n"
+                    "    - Reasoning: 'Patient identity cannot be verified. Despite complete other data, handoff unusable for patient safety.'\n\n"
+                    
+                    "❌ CRITICAL GAPS - Very high risk (0.45-0.50) - BUT TECHNICALLY USABLE:\n"
+                    "When patient_name IS present but room_number OR chief_complaint is missing:\n"
+                    "  • Confidence: 0.45-0.50 (use 0.48 for missing room, 0.45 for missing complaint)\n"
+                    "  • KEY DISTINCTION: This is USABLE with extreme caution (unlike missing patient_name which is UNUSABLE)\n"
+                    "  • Reasoning MUST include ALL of the following:\n"
+                    "    1. 'Patient identified: [name]. Critical contextual gap: missing [room_number/chief_complaint].'\n"
+                    "    2. 'Clinical safety impact: [explain specific risk - e.g., cannot locate patient for urgent interventions / lack of clinical context delays appropriate treatment].'\n"
+                    "    3. 'Handoff is technically USABLE because patient identity is verified, but requires immediate resolution of missing information before safe care can proceed.'\n"
+                    "    4. 'Confidence score (0.45-0.50) reflects high risk but does NOT make handoff completely unusable like missing patient_name would (0.15-0.30).'\n\n"
+                    
+                    "⚠️ IMPORTANT GAPS - Moderate risk (0.55-0.65):\n"
+                    "- Missing 2 or more of: age, vitals, medications\n"
+                    "- Reasoning MUST state: 'Multiple important clinical fields missing. Can proceed with caution and immediate data collection.'\n\n"
+                    
+                    "⚡ MINOR GAPS - Low risk (0.70-0.80):\n"
+                    "- Missing only 1 of: age, vitals, medications\n"
+                    "- Reasoning MUST state: 'One important field missing but can be quickly obtained.'\n\n"
+                    
+                    "❓ UNCERTAIN DATA (0.60-0.75) - ONLY if patient_name IS present:\n"
+                    "- Fields present but contain uncertainty markers: 'maybe', 'I think', 'approximately', 'like', '?'\n"
+                    "- Reasoning must explain which fields are uncertain and why\n\n"
+                    
+                    "✅ COMPLETE & CLEAR (0.85-0.95):\n"
+                    "- All critical fields (patient_name, room_number, chief_complaint) present\n"
+                    "- All or most important fields (age, vitals, medications) present\n"
+                    "- Data is clear and unambiguous\n"
+                    "- Reasoning MUST state: 'Comprehensive handoff with all key information clearly stated.'\n\n"
+                    
+                    "REASONING REQUIREMENTS:\n"
+                    "1. List which critical/important fields are missing or unclear\n"
+                    "2. Explain the clinical safety impact\n"
+                    "3. State whether handoff is USABLE or UNUSABLE:\n"
+                    "   • UNUSABLE (confidence ≤0.30): Missing patient_name - cannot verify who to treat\n"
+                    "   • USABLE with extreme caution (0.40-0.50): Patient identified but missing room/complaint - high risk, immediate data collection required\n"
+                    "   • USABLE with caution (0.55-0.80): Patient identified with room/complaint but missing other important data\n"
+                    "   • USABLE (0.85-0.95): Complete and clear handoff\n\n"
+                    
+                    "JSON STRUCTURE (return exactly this):\n"
+                    "{\n"
+                    '  "confidence": <number 0.0-1.0>,\n'
+                    '  "reasoning": "<detailed safety assessment>",\n'
+                    '  "patient_name": <string or null>,\n'
+                    '  "room_number": <string or null>,\n'
+                    '  "age": <string or null>,\n'
+                    '  "chief_complaint": <string or null>,\n'
+                    '  "medications": <array of strings or null>,\n'
+                    '  "pending_tasks": <array of strings or null>,\n'
+                    '  "vitals": <object or null>,\n'
+                    '  "safety_alerts": <array of strings or null>\n'
+                    "}\n\n"
+                    
+                    "🎯 CRITICAL USABILITY THRESHOLD CLARIFICATION:\n"
+                    "• Missing patient_name (0.15-0.30) → Handoff is UNUSABLE for safe clinical care (cannot verify who to treat)\n"
+                    "• Missing room/complaint but HAS patient_name (0.45-0.50) → Handoff is USABLE with extreme caution (can proceed but requires immediate data collection)\n"
+                    "• The distinction: Patient identity verification is the PRIMARY safety barrier. Without it, no care can safely proceed. With it, care can proceed cautiously even with contextual gaps.\n\n"
+                    
+                    "CRITICAL: Apply the LOWEST applicable confidence level. If patient_name is missing, confidence MUST be 0.15-0.30 based on other data quality."
                 ),
             },
             {"role": "user", "content": transcript},

@@ -26,7 +26,10 @@ def test_handoff_endpoint():
         
         print("✓ Request successful!")
         print("\nExtracted Data:")
-        print(json.dumps(response.json(), indent=2))
+        data = response.json()
+        print(f"  Confidence: {data.get('confidence', 0):.2f}")
+        print(f"  Reasoning: {data.get('reasoning', 'N/A')}")
+        print(f"\n{json.dumps(data, indent=2)}")
         
     except requests.exceptions.ConnectionError:
         print("✗ Could not connect to server. Make sure it's running on http://localhost:8000")

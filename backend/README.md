@@ -45,6 +45,8 @@ Process a patient handoff transcript and extract structured data.
 **Response:**
 ```json
 {
+  "confidence": 0.92,
+  "reasoning": "All key fields clearly stated with specific details",
   "patient_name": "John Doe",
   "room_number": "302",
   "age": "68",
@@ -56,15 +58,63 @@ Process a patient handoff transcript and extract structured data.
 }
 ```
 
+**Clinical Safety-Based Confidence Scoring:**
+
+The AI applies strict clinical safety standards to assess handoff quality:
+
+| Confidence Range | Safety Level | Criteria | Usability |
+|-----------------|--------------|----------|-----------|
+| **0.20-0.30** | 🔴 HARD STOP | Missing patient_name | ❌ **UNUSABLE** - Cannot verify patient identity |
+| **0.40-0.50** | 🟠 CRITICAL GAPS | Missing room_number OR chief_complaint | ❌ **UNUSABLE** - Critical info missing |
+| **0.55-0.65** | 🟡 IMPORTANT GAPS | Missing 2+ of: age, vitals, medications | ✅ Usable with caution |
+| **0.70-0.80** | 🟢 MINOR GAPS | Missing only 1 of: age, vitals, medications | ✅ Usable, one field needed |
+| **0.60-0.75** | 🟡 UNCERTAIN DATA | Contains "maybe", "I think", "approximately" | ✅ Usable with verification |
+| **0.85-0.95** | 🟢 COMPLETE | All critical + important fields present & clear | ✅ High confidence |
+
+**Key Rules:**
+- Applies the **LOWEST** applicable confidence level (e.g., missing patient_name → 0.20-0.30 regardless of other data)
+- Reasoning explains safety impact and states if handoff is usable (>0.50) or unusable (≤0.50)
+- Based on real clinical handoff safety standards
+
 ## Testing
 
-Run the test script:
+### Test the API endpoint:
 ```bash
 python test_intake_api.py
 ```
 
+### Test Azure Speech transcription:
+```bash
+python test_speech.py
+```
+
+This will:
+1. Automatically convert `test_handoff.m4a` to WAV format (if ffmpeg is installed)
+2. Transcribe the audio using Azure Speech Service
+3. Extract structured data using the intake agent
+4. Display the results
+
+**Requirements:**
+- Audio file: `test_handoff.m4a` in project root
+
+### Test edge cases and robustness:
+```bash
+python test_edge_cases.py
+```
+
+This tests the AI's handling of:
+- Incomplete transcripts (missing patient name, vitals)
+- Messy transcripts (filler words, uncertainty markers)
+- Minimal information (bare essentials only)
+- Empty transcripts (error handling)
+- Complete transcripts (baseline comparison)
+
+Shows how confidence scores adjust based on data quality and completeness.
+
 ## Architecture
 
 - `main.py` - FastAPI application with CORS middleware
-- `intake_agent.py` - Azure OpenAI integration for data extraction
-- `test_intake_api.py` - Sample client for testing the API
+- `intake_agent.py` - Azure OpenAI + Azure Speech integration for transcription and data extraction
+- `test_intake_api.py` - Sample client for testing the API endpoint
+- `test_speech.py` - Test script for audio transcription + extraction pipeline
+- `test_edge_cases.py` - Edge case testing for robustness validation
