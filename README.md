@@ -11,6 +11,27 @@
 
 ---
 
+## 📑 Table of Contents
+
+- [🎯 Problem Statement](#-problem-statement)
+- [🤖 Multi-Agent Architecture](#-multi-agent-architecture)
+- [🛠️ Tech Stack](#️-tech-stack)
+- [📊 Current Status](#-current-status)
+- [🎉 Week 1 Progress - Intake Agent](#-week-1-progress---intake-agent-complete)
+  - [Confidence Scoring System](#2-confidence-scoring-system---clinical-safety-based-)
+  - [Edge Case Testing](#3-edge-case-testing---7-scenarios-validated-)
+- [🎉 Week 2 Progress - Verification & Protocol Agents](#-week-2-progress---verification--protocol-agents-complete)
+  - [Verification Agent](#1-verification-agent---emr-cross-reference-)
+  - [Protocol Agent](#2-protocol-agent---clinical-compliance-checker-)
+  - [Scaled EMR Database](#3-scaled-emr-database---105-synthetic-patients-)
+- [🚀 Installation](#-installation)
+- [🧪 Testing](#-testing)
+- [🎥 Demo](#-demo)
+- [👥 Team](#-team)
+- [📝 License](#-license)
+
+---
+
 ## 🎯 Problem Statement
 
 When nurses change shifts, they verbally hand off patient care. Critical information gets lost:
