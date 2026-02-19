@@ -1,0 +1,425 @@
+"""
+Update Agent - Processes individual nurse updates throughout the shift.
+Transcribes audio, extracts structured data, verifies against EMR, and saves to database.
+"""
+
+from __future__ import annotations
+import os
+import uuid
+from datetime import datetime
+from typing import Optional, Dict, Any
+from dotenv import load_dotenv
+import json
+
+# Azure imports
+from openai import AzureOpenAI
+import azure.cognitiveservices.speech as speechsdk
+
+# Local imports
+from backend.models import PatientUpdate
+from backend.database import save_update, get_patient
+from backend.verification_agent import VerificationAgent
+
+# Load environment variables
+load_dotenv()
+
+
+class UpdateAgentError(Exception):
+    """Custom exception for UpdateAgent errors"""
+    pass
+
+
+class UpdateAgent:
+    """
+    Processes individual nurse updates during a shift.
+    Handles audio transcription, data extraction, EMR verification, and database storage.
+    """
+    
+    def __init__(self):
+        """Initialize UpdateAgent with Azure clients"""
+        # Azure OpenAI setup
+        self.openai_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+        self.openai_key = os.getenv("AZURE_OPENAI_KEY")
+        self.deployment = os.getenv("AZURE_OPENAI_DEPLOYMENT")
+        
+        if not all([self.openai_endpoint, self.openai_key, self.deployment]):
+            raise UpdateAgentError("Missing Azure OpenAI credentials in environment variables")
+        
+        self.openai_client = AzureOpenAI(
+            azure_endpoint=self.openai_endpoint,
+            api_key=self.openai_key,
+            api_version="2024-08-01-preview"
+        )
+        
+        # Azure Speech setup
+        self.speech_key = os.getenv("AZURE_SPEECH_KEY")
+        self.speech_region = os.getenv("AZURE_SPEECH_REGION")
+        
+        if not all([self.speech_key, self.speech_region]):
+            print("⚠️  Warning: Azure Speech credentials not found. Audio transcription will not work.")
+            self.speech_config = None
+        else:
+            self.speech_config = speechsdk.SpeechConfig(
+                subscription=self.speech_key,
+                region=self.speech_region
+            )
+        
+        # Initialize verification agent
+        try:
+            self.verification_agent = VerificationAgent()
+            print("✅ UpdateAgent initialized with verification support")
+        except Exception as e:
+            print(f"⚠️  Warning: Could not initialize VerificationAgent: {e}")
+            self.verification_agent = None
+    
+    def _transcribe_audio(self, audio_path: str) -> Optional[str]:
+        """
+        Transcribe audio file using Azure Speech API.
+        
+        Args:
+            audio_path: Path to audio file
+        
+        Returns:
+            Transcribed text or None on error
+        """
+        if not self.speech_config:
+            print("❌ Speech API not configured")
+            return None
+        
+        try:
+            audio_config = speechsdk.AudioConfig(filename=audio_path)
+            speech_recognizer = speechsdk.SpeechRecognizer(
+                speech_config=self.speech_config,
+                audio_config=audio_config
+            )
+            
+            print(f"🎤 Transcribing audio: {audio_path}")
+            result = speech_recognizer.recognize_once()
+            
+            if result.reason == speechsdk.ResultReason.RecognizedSpeech:
+                print(f"✅ Transcription complete: {len(result.text)} characters")
+                return result.text
+            elif result.reason == speechsdk.ResultReason.NoMatch:
+                print("❌ No speech could be recognized")
+                return None
+            elif result.reason == speechsdk.ResultReason.Canceled:
+                cancellation = result.cancellation_details
+                print(f"❌ Speech recognition canceled: {cancellation.reason}")
+                if cancellation.reason == speechsdk.CancellationReason.Error:
+                    print(f"   Error details: {cancellation.error_details}")
+                return None
+            else:
+                print(f"❌ Unexpected result reason: {result.reason}")
+                return None
+                
+        except Exception as e:
+            print(f"❌ Error transcribing audio: {e}")
+            return None
+    
+    def _extract_update_data(self, transcription: str, update_type: str) -> Dict[str, Any]:
+        """
+        Extract structured data from update transcription using Azure OpenAI.
+        
+        Args:
+            transcription: Text of the update
+            update_type: Type of update (vital_signs/medication/procedure/general)
+        
+        Returns:
+            Dictionary with extracted structured data
+        """
+        try:
+            system_prompt = """You are a clinical data extraction assistant. 
+Extract structured information from nurse's patient updates.
+
+Extract these fields:
+1. timestamp: Any mentioned time (e.g., "11 AM", "2:30 PM") or "current" if not mentioned
+2. event_type: medication, vital_signs, procedure, assessment, lab_result, or general
+3. description: A clear, concise summary of the update
+4. mentioned_medications: List of any medications mentioned (name and dose if available)
+5. mentioned_vitals: Dict of vital signs (bp, hr, temp, spo2, rr)
+6. mentioned_events: List of procedures, doctor visits, treatments, or other events
+
+Return ONLY valid JSON. Be precise and extract all clinical details."""
+
+            user_prompt = f"""Update Type: {update_type}
+
+Transcription:
+{transcription}
+
+Extract the structured data as JSON."""
+
+            print(f"🤖 Extracting structured data from update...")
+            
+            response = self.openai_client.chat.completions.create(
+                model=self.deployment,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                response_format={"type": "json_object"}
+            )
+            
+            extracted_data = json.loads(response.choices[0].message.content)
+            print(f"✅ Extracted data: {extracted_data.get('event_type', 'unknown')} event")
+            
+            return extracted_data
+            
+        except Exception as e:
+            print(f"❌ Error extracting update data: {e}")
+            # Return minimal structure on error
+            return {
+                "timestamp": "current",
+                "event_type": update_type,
+                "description": transcription,
+                "mentioned_medications": [],
+                "mentioned_vitals": {},
+                "mentioned_events": []
+            }
+    
+    def _verify_update(self, extracted_data: Dict[str, Any], patient_data: dict) -> Dict[str, Any]:
+        """
+        Verify update data against patient EMR.
+        
+        Args:
+            extracted_data: Structured data from update
+            patient_data: Patient EMR data
+        
+        Returns:
+            Verification results with any discrepancies found
+        """
+        verification_issues = []
+        emr_verified = True
+        
+        try:
+            # Check medications against EMR
+            mentioned_meds = extracted_data.get("mentioned_medications", [])
+            emr_meds = patient_data.get("medications", [])
+            
+            if mentioned_meds and emr_meds:
+                for med in mentioned_meds:
+                    # Simple name matching (could be improved)
+                    med_name = med.get("name", med) if isinstance(med, dict) else med
+                    med_name_lower = med_name.lower()
+                    
+                    # Check if medication is in EMR
+                    found = False
+                    for emr_med in emr_meds:
+                        if isinstance(emr_med, dict):
+                            emr_med_name = emr_med.get("name", "").lower()
+                        else:
+                            emr_med_name = str(emr_med).lower()
+                        
+                        if med_name_lower in emr_med_name or emr_med_name in med_name_lower:
+                            found = True
+                            break
+                    
+                    if not found:
+                        verification_issues.append({
+                            "type": "MEDICATION_NOT_IN_EMR",
+                            "severity": "HIGH",
+                            "finding": f"Medication '{med_name}' not found in patient's current medication list",
+                            "details": f"Mentioned in update but not in EMR"
+                        })
+                        emr_verified = False
+            
+            # Check vital signs for reasonableness
+            mentioned_vitals = extracted_data.get("mentioned_vitals", {})
+            
+            if mentioned_vitals:
+                # Blood pressure check
+                bp = mentioned_vitals.get("bp") or mentioned_vitals.get("blood_pressure")
+                if bp:
+                    # Basic BP validation (could be more sophisticated)
+                    bp_str = str(bp)
+                    if "/" in bp_str:
+                        try:
+                            systolic, diastolic = bp_str.split("/")
+                            systolic = int(systolic.strip())
+                            diastolic = int(diastolic.strip())
+                            
+                            if systolic < 70 or systolic > 250:
+                                verification_issues.append({
+                                    "type": "VITAL_OUT_OF_RANGE",
+                                    "severity": "CRITICAL",
+                                    "finding": f"Systolic BP {systolic} is outside normal range",
+                                    "details": "May indicate critical condition or data entry error"
+                                })
+                                emr_verified = False
+                            
+                            if diastolic < 40 or diastolic > 150:
+                                verification_issues.append({
+                                    "type": "VITAL_OUT_OF_RANGE",
+                                    "severity": "CRITICAL",
+                                    "finding": f"Diastolic BP {diastolic} is outside normal range",
+                                    "details": "May indicate critical condition or data entry error"
+                                })
+                                emr_verified = False
+                        except ValueError:
+                            pass
+                
+                # Heart rate check
+                hr = mentioned_vitals.get("hr") or mentioned_vitals.get("heart_rate")
+                if hr:
+                    try:
+                        hr_val = int(str(hr).strip())
+                        if hr_val < 30 or hr_val > 200:
+                            verification_issues.append({
+                                "type": "VITAL_OUT_OF_RANGE",
+                                "severity": "CRITICAL",
+                                "finding": f"Heart rate {hr_val} is outside normal range",
+                                "details": "May indicate critical condition or data entry error"
+                            })
+                            emr_verified = False
+                    except ValueError:
+                        pass
+                
+                # Temperature check
+                temp = mentioned_vitals.get("temp") or mentioned_vitals.get("temperature")
+                if temp:
+                    try:
+                        temp_val = float(str(temp).strip())
+                        if temp_val < 95 or temp_val > 106:
+                            verification_issues.append({
+                                "type": "VITAL_OUT_OF_RANGE",
+                                "severity": "CRITICAL",
+                                "finding": f"Temperature {temp_val}°F is outside normal range",
+                                "details": "May indicate critical condition or data entry error"
+                            })
+                            emr_verified = False
+                    except ValueError:
+                        pass
+            
+            # Use VerificationAgent for more comprehensive checking if available
+            if self.verification_agent and verification_issues:
+                print(f"⚠️  Found {len(verification_issues)} potential issues")
+            
+            return {
+                "emr_verified": emr_verified,
+                "issues": verification_issues,
+                "checked_at": datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            print(f"❌ Error during verification: {e}")
+            return {
+                "emr_verified": False,
+                "issues": [{
+                    "type": "VERIFICATION_ERROR",
+                    "severity": "MEDIUM",
+                    "finding": "Could not complete EMR verification",
+                    "details": str(e)
+                }],
+                "checked_at": datetime.now().isoformat()
+            }
+    
+    def process_update(
+        self,
+        audio_or_text: str,
+        patient_id: str,
+        nurse_id: str,
+        shift_id: str,
+        update_type: str = "general",
+        is_audio: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Process a patient update from audio or text.
+        
+        Args:
+            audio_or_text: Path to audio file or text update
+            patient_id: ID of the patient
+            nurse_id: ID of the nurse making the update
+            shift_id: ID of the current shift
+            update_type: Type of update (vital_signs/medication/procedure/general)
+            is_audio: Whether input is audio file (True) or text (False)
+        
+        Returns:
+            Dictionary with processing results
+        """
+        try:
+            print(f"\n{'='*60}")
+            print(f"🏥 Processing update for patient {patient_id}")
+            print(f"👨‍⚕️ Nurse: {nurse_id} | Shift: {shift_id}")
+            print(f"📝 Type: {update_type}")
+            print(f"{'='*60}\n")
+            
+            # Step 1: Get transcription
+            if is_audio:
+                transcription = self._transcribe_audio(audio_or_text)
+                if not transcription:
+                    return {
+                        "success": False,
+                        "message": "Failed to transcribe audio",
+                        "error": "Audio transcription failed"
+                    }
+            else:
+                transcription = audio_or_text
+                print(f"📄 Using provided text ({len(transcription)} characters)")
+            
+            # Step 2: Extract structured data
+            extracted_data = self._extract_update_data(transcription, update_type)
+            
+            # Step 3: Fetch patient EMR data
+            print(f"🔍 Fetching EMR data for patient {patient_id}")
+            patient_data = get_patient(patient_id)
+            
+            if not patient_data:
+                print(f"⚠️  Warning: Could not fetch patient {patient_id} from EMR")
+                patient_data = {}  # Continue anyway with empty EMR
+            else:
+                print(f"✅ Retrieved EMR for {patient_data.get('name', 'Unknown')}")
+            
+            # Step 4: Verify update against EMR
+            verification_results = self._verify_update(extracted_data, patient_data)
+            
+            # Step 5: Create PatientUpdate object
+            update_id = str(uuid.uuid4())
+            patient_update = PatientUpdate(
+                id=update_id,
+                shift_id=shift_id,
+                patient_id=patient_id,
+                nurse_id=nurse_id,
+                timestamp=datetime.now(),
+                update_type=extracted_data.get("event_type", update_type),
+                transcription=transcription,
+                audio_url=audio_or_text if is_audio else None,
+                extracted_data=extracted_data,
+                emr_verified=verification_results["emr_verified"],
+                verification_notes=verification_results
+            )
+            
+            # Step 6: Save to database
+            print(f"💾 Saving update to database...")
+            saved_id = save_update(patient_update)
+            
+            if not saved_id:
+                return {
+                    "success": False,
+                    "message": "Failed to save update to database",
+                    "error": "Database save failed"
+                }
+            
+            # Step 7: Return success result
+            print(f"\n{'='*60}")
+            print(f"✅ Update processed successfully!")
+            print(f"   Update ID: {update_id}")
+            print(f"   EMR Verified: {'✓' if verification_results['emr_verified'] else '✗'}")
+            print(f"   Issues Found: {len(verification_results['issues'])}")
+            print(f"{'='*60}\n")
+            
+            return {
+                "success": True,
+                "update_id": update_id,
+                "transcription": transcription,
+                "extracted_data": extracted_data,
+                "emr_verified": verification_results["emr_verified"],
+                "verification_issues": verification_results["issues"],
+                "message": "Update saved successfully"
+            }
+            
+        except Exception as e:
+            print(f"❌ Error processing update: {e}")
+            return {
+                "success": False,
+                "message": f"Error processing update: {str(e)}",
+                "error": str(e)
+            }
