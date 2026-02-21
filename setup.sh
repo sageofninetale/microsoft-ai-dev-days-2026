@@ -1,7 +1,7 @@
 #!/bin/bash
 
-echo "🏥 MedReconcile - Installation & Startup Script"
-echo "================================================"
+echo "💧 CascadeAI - Installation & Startup Script"
+echo "=============================================="
 echo ""
 
 # Install frontend dependencies
@@ -13,6 +13,6 @@ echo ""
 echo "✅ Installation complete!"
 echo ""
 echo "To start the application:"
-echo "  1. Backend:  python -m backend.api     (in root directory)"
+echo "  1. Backend:  python3 -m uvicorn backend.api:app --reload --host 0.0.0.0 --port 8000"
 echo "  2. Frontend: npm start                 (in frontend/ directory)"
 echo ""

@@ -417,7 +417,7 @@ function App() {
   return (
     <div className="App">
       <header>
-        <h1>🏥 MedReconcile - API Test UI</h1>
+        <h1>💧 CascadeAI - Clinical Handoff System</h1>
         <p style={{ fontSize: '14px', color: '#666' }}>Backend: {API_BASE}</p>
       </header>
 
