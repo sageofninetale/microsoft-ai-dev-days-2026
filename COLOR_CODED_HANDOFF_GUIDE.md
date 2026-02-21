@@ -1,7 +1,7 @@
 # 🎨 Color-Coded Handoff System - Implementation Guide
 
 ## Overview
-The MedReconcile handoff system now includes a **clinical color-coded severity classification system** that provides at-a-glance visual indicators for patient safety alerts, medication status, vital signs, and pending actions.
+The CascadeAI handoff system now includes a **clinical color-coded severity classification system** that provides at-a-glance visual indicators for patient safety alerts, medication status, vital signs, and pending actions.
 
 ---
 

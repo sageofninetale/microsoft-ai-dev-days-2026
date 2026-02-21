@@ -1,4 +1,4 @@
-# 🏥 MedReconcile - Multi-Agent Clinical Handoff Intelligence
+# 💧 CascadeAI - Multi-Agent Clinical Handoff Intelligence
 
 [![Hackathon](https://img.shields.io/badge/AI%20Dev%20Days-Hackathon%202026-blue)](https://aka.ms/aidevdayshackathon)
 [![Category](https://img.shields.io/badge/Category-Best%20Multi--Agent%20System-green)]()
@@ -7,7 +7,7 @@
 
 > **Preventing medical errors through intelligent multi-agent coordination**
 
-80% of serious medical errors involve miscommunication during nurse handoffs. MedReconcile uses a sophisticated multi-agent system to automatically verify, cross-check, and protocol-align clinical handoffs in real-time.
+80% of serious medical errors involve miscommunication during nurse handoffs. CascadeAI uses a sophisticated multi-agent system to automatically verify, cross-check, and protocol-align clinical handoffs in real-time.
 
 ---
 
@@ -39,7 +39,7 @@ When nurses change shifts, they verbally hand off patient care. Critical informa
 - Forgotten lab results → delayed diagnosis  
 - Unclear protocols → suboptimal care
 
-**Current tools are passive** - they just display what nurses manually enter. **MedReconcile is intelligent** - AI agents actively verify and enhance handoffs.
+**Current tools are passive** - they just display what nurses manually enter. **CascadeAI is intelligent** - AI agents actively verify and enhance handoffs.
 
 ---
 

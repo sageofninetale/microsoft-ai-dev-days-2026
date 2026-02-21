@@ -260,7 +260,7 @@ class CoordinatorAgent:
         timestamp = datetime.utcnow().isoformat() + "Z"
 
         print("\n" + "=" * 80)
-        print("  MEDRECONCILE - MULTI-AGENT CLINICAL HANDOFF COORDINATOR")
+        print("  💧 CASCADEAI - MULTI-AGENT CLINICAL HANDOFF COORDINATOR")
         print("=" * 80)
         print(f"Timestamp: {timestamp}")
         print(f"Patient ID: {patient_id}")
