@@ -273,9 +273,7 @@ Generate the structured handoff summary as JSON with:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                response_format={"type": "json_object"},
-                temperature=0.3,  # 🎯 FIX: Lower temperature for faster, more consistent responses
-                max_tokens=2500   # 🎯 FIX: Limit tokens to speed up generation (was unlimited)
+                response_format={"type": "json_object"}
             )
             
             summary = json.loads(response.choices[0].message.content)

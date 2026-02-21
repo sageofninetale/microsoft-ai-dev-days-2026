@@ -91,18 +91,6 @@ class PatientIntakeAgent:
             subscription=self._speech_key,
             region=self._speech_region,
         )
-        
-        # 🎯 FIX: Improve transcription reliability for hackathon demos
-        # Set longer timeouts to handle pauses and longer utterances
-        self._speech_config.set_property(
-            self._speechsdk.PropertyId.Speech_SegmentationSilenceTimeoutMs, "2000"  # 2 seconds of silence before stopping
-        )
-        self._speech_config.set_property(
-            self._speechsdk.PropertyId.SpeechServiceConnection_InitialSilenceTimeoutMs, "10000"  # 10 seconds initial wait
-        )
-        self._speech_config.set_property(
-            self._speechsdk.PropertyId.SpeechServiceConnection_EndSilenceTimeoutMs, "2000"  # 2 seconds end silence
-        )
 
         self._aoai_client = self._openai.AzureOpenAI(
             api_key=self._aoai_key,

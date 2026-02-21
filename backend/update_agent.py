@@ -173,9 +173,7 @@ Extract the structured data as JSON. Make sure event_type reflects what is ACTUA
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                response_format={"type": "json_object"},
-                temperature=0.2,  # 🎯 FIX: Lower temperature for faster extraction
-                max_tokens=500    # 🎯 FIX: Limit tokens - we only need small structured output
+                response_format={"type": "json_object"}
             )
             
             extracted_data = json.loads(response.choices[0].message.content)
