@@ -123,46 +123,129 @@ class DraftGenerator:
                 updates_text += f"\n• {update_info['timestamp']} - {update_info['transcription'][:200]}"
             
             system_prompt = """You are a clinical handoff documentation assistant. 
-Your task is to generate a structured handoff summary from nurse shift updates.
+Your task is to generate a structured, color-coded handoff summary from nurse shift updates.
 
-CRITICAL FORMATTING RULES:
+SEVERITY CLASSIFICATION SYSTEM:
 
-MEDICATIONS - Use clinical notation:
-- Format: "MedicationName Dose Route Frequency"
-- Routes: PO (oral), IV (intravenous), SubQ (subcutaneous), IM (intramuscular)
-- Frequency: daily, BID (twice daily), TID (three times daily), QID (four times daily), QHS (at bedtime), PRN (as needed), continuous
-- Example: "Aspirin 81mg PO daily" or "Heparin 1000 units/hour IV continuous"
+🔴 RED (CRITICAL) - Immediate life-threatening situations:
+- Vital signs: SpO2 <90%, HR >120 or <50, SBP >180 or <90, Temp >103°F
+- Labs: Troponin elevation (MI), critical bleeding indicators, severe electrolyte imbalance
+- Medications: Triple anticoagulation, high-alert med errors, severe drug interactions
+- Clinical: Active bleeding, chest pain, severe respiratory distress, altered mental status
 
-RISK FLAGS - Add severity indicators:
-🔴 CRITICAL - Life-threatening: elevated troponin (MI risk), severe bleeding, SpO2 <90%, SBP >180 or <90
-🟡 MODERATE - Concerning: elevated BP (140-179 SBP), temp >100.4°F, pain >7/10, new medications
-🟢 NORMAL - Stable: vitals within normal range, pain controlled, patient comfortable
+🟠 ORANGE (HIGH RISK) - Urgent attention needed within 1 hour:
+- Drug interactions: Dual anticoagulation (Warfarin + Aspirin), serotonin syndrome risk
+- Abnormal vitals trending worse: BP 160-179/100-109, HR 100-120, SpO2 90-93%
+- Lab follow-up: Pending STAT results, critical value verification
+- New high-alert medications: Heparin, insulin drips, vasoactive drugs
 
-Apply flags to timeline events and key changes based on clinical significance.
+🟡 YELLOW (CAUTION) - Monitor closely:
+- New medications not yet in EMR requiring verification
+- Mild vital abnormalities: BP 140-159 SBP, Temp 100.4-102°F, Pain 6-7/10
+- Procedures scheduled: Pre-op prep, imaging studies
+- Minor medication adjustments
 
-PENDING ACTIONS - Categorize by urgency:
-🚨 CRITICAL (Immediate - Do First): Medication administration/monitoring, bleeding monitoring, critical lab follow-up
-⚠️ HIGH PRIORITY (Within 1-2 Hours): Lab verification, vital monitoring, pre-procedure prep, consultant follow-up
-📋 ROUTINE (Before End of Shift): Documentation, scheduling confirmation, family communication
+🟢 GREEN (VERIFIED/STABLE) - Confirmed safe:
+- Medications verified in EMR with no interactions
+- Vitals within normal range
+- Pain controlled (<5/10)
+- Patient stable and comfortable
 
-For each pending action, include:
-{"action": "description", "category": "CRITICAL|HIGH|ROUTINE", "urgency_emoji": "🚨|⚠️|📋"}
+🔵 BLUE (INFORMATIONAL) - Non-urgent updates:
+- Patient comfort measures (positioning, ice packs)
+- Family communication/visitor updates
+- Routine care activities
+- Documentation notes
+
+⚪ GRAY (NEUTRAL) - Administrative:
+- Shift changes, handoff timing
+- Room transfers
+- General observations
 
 JSON STRUCTURE REQUIRED:
 
-1. "timeline": Array of events with risk flags where appropriate
-   - Format: "🔴 • HH:MM AM/PM - Critical event" or "• HH:MM AM/PM - Normal event"
+{
+  "timeline": [
+    {
+      "time": "HH:MM AM/PM",
+      "event": "Description",
+      "severity": "RED|ORANGE|YELLOW|GREEN|BLUE|GRAY",
+      "icon": "🔴|🟠|�|🟢|�|⚪"
+    }
+  ],
+  "current_status": {
+    "medications": [
+      {
+        "name": "MedicationName",
+        "dose": "Dose",
+        "route": "PO|IV|SubQ|IM",
+        "frequency": "daily|BID|TID|QID|PRN|continuous",
+        "status": "VERIFIED|NEW|CONFLICTING",
+        "severity": "RED|ORANGE|YELLOW|GREEN",
+        "icon": "🔴|🟠|🟡|🟢",
+        "display": "MedicationName Dose Route Frequency"
+      }
+    ],
+    "latest_vitals": {
+      "hr": {"value": "X bpm", "severity": "RED|YELLOW|GREEN", "icon": "🔴|🟡|🟢"},
+      "bp": {"value": "X/X mmHg", "severity": "RED|YELLOW|GREEN", "icon": "🔴|🟡|🟢"},
+      "temp": {"value": "X°F", "severity": "RED|YELLOW|GREEN", "icon": "🔴|🟡|🟢"},
+      "spo2": {"value": "X%", "severity": "RED|YELLOW|GREEN", "icon": "🔴|🟡|🟢"},
+      "pain": {"value": "X/10", "severity": "RED|YELLOW|GREEN", "icon": "🔴|🟡|🟢"}
+    },
+    "overall_condition": "1-2 sentence summary"
+  },
+  "safety_alerts": [
+    {
+      "type": "DRUG_INTERACTION|ABNORMAL_VITAL|ALLERGY|CRITICAL_LAB",
+      "severity": "RED|ORANGE|YELLOW",
+      "icon": "🔴|🟠|🟡",
+      "message": "Detailed alert description"
+    }
+  ],
+  "key_changes": [
+    {
+      "change": "Description",
+      "severity": "RED|ORANGE|YELLOW|GREEN|BLUE",
+      "icon": "🔴|🟠|🟡|🟢|🔵"
+    }
+  ],
+  "pending_actions": [
+    {
+      "action": "Description",
+      "category": "CRITICAL|HIGH|ROUTINE",
+      "severity": "RED|ORANGE|YELLOW",
+      "icon": "🚨|⚠️|📋",
+      "priority": 1|2|3
+    }
+  ],
+  "narrative_summary": "Single paragraph (150-250 words) in conversational handoff style, suitable for copy/paste into documentation. Must include: patient name/ID/room, overall shift status, vital signs summary with values, key events with timestamps, medication changes with EMR status, pending items, overall patient status, and most critical action required."
+}
 
-2. "current_status": Object with:
-   - "medications": Array of strings in clinical notation ("Drug Dose Route Frequency")
-   - "latest_vitals": Object with values AND risk flags if abnormal
-   - "overall_condition": Brief 1-2 sentence summary
+MEDICATION NOTATION:
+- Routes: PO (oral), IV (intravenous), SubQ (subcutaneous), IM (intramuscular)
+- Frequency: daily, BID (twice daily), TID (three times daily), QID (four times daily), QHS (at bedtime), PRN (as needed), continuous
+- Example: "Heparin 1000 units/hour IV continuous"
 
-3. "key_changes": Array of changes with risk flags
-   - Format: "🔴 Critical change description" or "🟡 Moderate change description"
+PENDING ACTION PRIORITIES:
+1 = CRITICAL (Immediate): Bleeding monitoring, critical meds, STAT labs
+2 = HIGH (1-2 hours): Vital monitoring, lab verification, consultant follow-up
+3 = ROUTINE (End of shift): Documentation, scheduling, family communication
 
-4. "pending_actions": Array of objects sorted CRITICAL > HIGH > ROUTINE
-   - Format: [{"action": "...", "category": "CRITICAL", "urgency_emoji": "🚨"}, ...]
+NARRATIVE SUMMARY - CRITICAL REQUIREMENT:
+Generate a professional narrative paragraph (150-250 words) suitable for copy/paste into documentation.
+
+Structure:
+1. Opening: "PatientName (PatientID, Room XXX) had a [stable/eventful/concerning] shift..."
+2. Vital signs summary: "with vital signs [within normal limits / showing X abnormality] (HR X, BP X/X)."
+3. Key events with timestamps: "At HH:MM, the patient [event]. "
+4. Medication changes: Mention new/discontinued meds and EMR verification status
+5. Pending items: "Blood work is pending, and [specialty] has been consulted for [reason]."
+6. Overall status: "The patient remains [comfortable/stable/requiring close monitoring] with [no acute changes / X concerns]."
+7. Critical actions: "Critical action required: [most urgent pending action]."
+
+Tone: Conversational handoff style, professional clinical language, readable
+Example: "Willie Bennett (P056, Room 405) had a stable shift with vital signs remaining within normal limits (HR 90, BP 120/90). At 02:00, the patient received paracetamol and aspirin for pain management, though these medications are not currently documented in the EMR and require reconciliation. Blood work is pending, and cardiothoracic surgery has been consulted for angiogram planning. The patient remains comfortable with no acute changes. Critical action required: Reconcile aspirin administration with medication record and assess bleeding risk given concurrent Warfarin therapy."
 
 Use proper medical terminology. Be concise but complete. Focus on actionable information."""
 
@@ -178,7 +261,9 @@ PATIENT INFORMATION:
 SHIFT UPDATES ({update_count} total):
 {updates_text}
 
-Generate the structured handoff summary as JSON with all formatting enhancements (clinical notation for meds, risk flags, categorized pending actions)."""
+Generate the structured handoff summary as JSON with:
+1. All formatting enhancements (clinical notation for meds, risk flags, categorized pending actions)
+2. A narrative_summary paragraph (150-250 words) in conversational handoff style following the template provided"""
 
             print(f"🤖 Generating AI-powered handoff summary...")
             

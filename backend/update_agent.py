@@ -131,22 +131,39 @@ class UpdateAgent:
             system_prompt = """You are a clinical data extraction assistant. 
 Extract structured information from nurse's patient updates.
 
+CRITICAL: You MUST analyze the content and determine the CORRECT event_type based on what is actually described, NOT based on what the user selected.
+
+EVENT TYPE CLASSIFICATION RULES:
+- medication: Mentions giving/administering/starting/stopping drugs, IV drips, medications
+- vital_signs: Contains NUMBERS for HR, BP, temperature, SpO2, respiratory rate, or pain score
+- procedure: Mentions procedures, imaging (x-ray, CT, MRI), surgery, tests, consultations, specialist visits
+- lab_result: Lab values, blood work results, culture results
+- assessment: Patient assessment, condition evaluation, physical exam findings
+- general: Observations, ambulation, family visits, patient comfort, positioning
+
+EXAMPLES:
+- "Started heparin drip at 1000 units/hour" → medication
+- "HR 88, BP 142/85, temp 98.9" → vital_signs  
+- "Patient taken to radiology for chest x-ray" → procedure
+- "Cardiology consulted for elevated troponin" → procedure
+- "Patient ambulated to bathroom with assistance" → general
+
 Extract these fields:
 1. timestamp: Any mentioned time (e.g., "11 AM", "2:30 PM") or "current" if not mentioned
-2. event_type: medication, vital_signs, procedure, assessment, lab_result, or general
+2. event_type: Analyze content and choose: medication, vital_signs, procedure, lab_result, assessment, or general (IGNORE user's suggested type)
 3. description: A clear, concise summary of the update
 4. mentioned_medications: List of any medications mentioned (name and dose if available)
-5. mentioned_vitals: Dict of vital signs (bp, hr, temp, spo2, rr)
+5. mentioned_vitals: Dict of vital signs (bp, hr, temp, spo2, rr, pain)
 6. mentioned_events: List of procedures, doctor visits, treatments, or other events
 
 Return ONLY valid JSON. Be precise and extract all clinical details."""
 
-            user_prompt = f"""Update Type: {update_type}
+            user_prompt = f"""Nurse suggested type: {update_type} (but analyze content to determine ACTUAL type)
 
 Transcription:
 {transcription}
 
-Extract the structured data as JSON."""
+Extract the structured data as JSON. Make sure event_type reflects what is ACTUALLY described in the text."""
 
             print(f"🤖 Extracting structured data from update...")
             
