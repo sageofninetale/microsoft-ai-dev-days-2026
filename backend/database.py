@@ -213,7 +213,15 @@ def save_update(update: PatientUpdate) -> Optional[str]:
             return None
             
     except Exception as e:
+        error_msg = str(e)
         print(f"❌ Error saving update: {e}")
+        
+        # Check for foreign key violations (invalid shift_id)
+        if 'foreign key constraint' in error_msg.lower() and 'shift_id' in error_msg:
+            print(f"⚠️  INVALID SHIFT ID: {update.shift_id}")
+            print("   This shift does not exist in the database.")
+            print("   User needs to start a new shift!")
+        
         return None
 
 
@@ -625,6 +633,7 @@ def get_multiple_patients(patient_ids: List[str]) -> List[dict]:
         result = supabase.table("patients")\
             .select("*")\
             .in_("patient_id", patient_ids)\
+            .order("patient_id")\
             .execute()
         
         if result.data:

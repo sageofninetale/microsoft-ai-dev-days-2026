@@ -202,6 +202,31 @@ def print_draft_content(draft_content: dict):
         else:
             print("   • No pending actions")
         print()
+    
+    # Narrative Summary Section (THE MOST IMPORTANT PART!)
+    if "narrative_summary" in draft_content:
+        print("📖 NARRATIVE SUMMARY (Copy for Verbal Handoff):")
+        print_separator("-", 60)
+        narrative = draft_content["narrative_summary"]
+        if narrative and isinstance(narrative, str):
+            # Word-wrap the narrative for readability
+            words = narrative.split()
+            line = "   "
+            for word in words:
+                if len(line) + len(word) + 1 > 76:
+                    print(line)
+                    line = "   " + word
+                else:
+                    line += " " + word if line != "   " else word
+            if line.strip():
+                print(line)
+        else:
+            print("   ⚠️  No narrative summary generated")
+        print()
+    else:
+        print("⚠️  WARNING: No narrative_summary field in draft!")
+        print("   This is a critical missing feature - nurse needs this for verbal handoff")
+        print()
 
 
 def print_verification(draft_id: str, update_count: int, patient_id: str, shift_id: str):
