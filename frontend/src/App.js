@@ -34,6 +34,7 @@ function App() {
   const [audioBlob, setAudioBlob] = useState(null);
   const [transcription, setTranscription] = useState('');
   const [processingSteps, setProcessingSteps] = useState([]);
+  const [isEditingTranscription, setIsEditingTranscription] = useState(false);
 
   // Copy to clipboard function
   const copyToClipboard = (text) => {
@@ -534,21 +535,42 @@ function App() {
             {transcription && (
               <div className="transcription-box">
                 <h4>📝 Transcription:</h4>
-                <p>{transcription}</p>
-                <button onClick={submitAudioUpdate} disabled={loading}>
-                  📤 Submit Audio Update
-                </button>
-                <button 
-                  onClick={() => {
-                    setTranscription('');
-                    setAudioBlob(null);
-                    setProcessingSteps([]);
-                  }} 
-                  className="clear-button"
-                  disabled={loading}
-                >
-                  🗑️ Clear
-                </button>
+                {isEditingTranscription ? (
+                  <textarea
+                    rows="4"
+                    value={transcription}
+                    onChange={(e) => setTranscription(e.target.value)}
+                    className="editable-transcription"
+                    autoFocus
+                  />
+                ) : (
+                  <p>{transcription}</p>
+                )}
+                <div className="transcription-buttons">
+                  <button 
+                    onClick={() => setIsEditingTranscription(!isEditingTranscription)}
+                    className="edit-button"
+                    disabled={loading}
+                    title={isEditingTranscription ? "Done editing" : "Edit transcription"}
+                  >
+                    {isEditingTranscription ? '✅ Done' : '⌨️ Edit'}
+                  </button>
+                  <button onClick={submitAudioUpdate} disabled={loading}>
+                    📤 Submit Audio Update
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setTranscription('');
+                      setAudioBlob(null);
+                      setProcessingSteps([]);
+                      setIsEditingTranscription(false);
+                    }} 
+                    className="clear-button"
+                    disabled={loading}
+                  >
+                    🗑️ Clear
+                  </button>
+                </div>
               </div>
             )}
             

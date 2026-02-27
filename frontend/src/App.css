@@ -699,8 +699,38 @@ button:disabled {
   line-height: 1.6;
 }
 
-.transcription-box button {
-  margin-right: 10px;
+.transcription-box .editable-transcription {
+  width: 100%;
+  margin-bottom: 15px;
+  padding: 10px;
+  background: #fff9e6;
+  border: 2px solid #ffc107;
+  border-radius: 4px;
+  font-family: monospace;
+  line-height: 1.6;
+  font-size: 14px;
+  resize: vertical;
+}
+
+.transcription-box .editable-transcription:focus {
+  outline: none;
+  border-color: #ff9800;
+  background: #fffbf0;
+}
+
+.transcription-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.edit-button {
+  background: #ff9800;
+  color: white;
+}
+
+.edit-button:hover:not(:disabled) {
+  background: #f57c00;
 }
 
 .clear-button {
