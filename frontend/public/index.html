@@ -1,17 +1,117 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
-    <meta
-      name="description"
-      content="CascadeAI - Intelligent Clinical Handoff System"
-    />
-    <title>CascadeAI - Clinical Handoffs</title>
-  </head>
-  <body>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
-    <div id="root"></div>
-  </body>
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#000000" />
+  <meta name="description" content="CascadeAI - Intelligent Clinical Handoff System" />
+  <title>CascadeAI - Clinical Handoffs</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: "#C5E35C",
+            "primary-dark": "#B5D34F",
+            "forest-green": "#3D522B",
+            "forest-light": "#2D4A35",
+            "background-light": "#F9F9F7",
+            "background-dark": "#121410",
+          },
+          fontFamily: {
+            display: ["Playfair Display", "serif"],
+            sans: ["Inter", "sans-serif"],
+          },
+          borderRadius: {
+            DEFAULT: "12px",
+            xl: "24px",
+            "2xl": "32px",
+            "3xl": "40px",
+          },
+        },
+      },
+    };
+  </script>
+  <!-- Google Fonts -->
+  <link
+    href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,700&family=Inter:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet" />
+  <!-- Material Icons -->
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet" />
+  <!-- Custom animations -->
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+
+    .waveform-bar {
+      animation: waveform 1.2s ease-in-out infinite;
+    }
+
+    @keyframes waveform {
+
+      0%,
+      100% {
+        height: 8px;
+      }
+
+      50% {
+        height: 32px;
+      }
+    }
+
+    .waveform-bar:nth-child(2) {
+      animation-delay: 0.1s;
+    }
+
+    .waveform-bar:nth-child(3) {
+      animation-delay: 0.2s;
+    }
+
+    .waveform-bar:nth-child(4) {
+      animation-delay: 0.3s;
+    }
+
+    .waveform-bar:nth-child(5) {
+      animation-delay: 0.15s;
+    }
+
+    .waveform-bar:nth-child(6) {
+      animation-delay: 0.25s;
+    }
+
+    .waveform-bar:nth-child(7) {
+      animation-delay: 0.35s;
+    }
+
+    .waveform-bar:nth-child(8) {
+      animation-delay: 0.05s;
+    }
+
+    @keyframes pulse-ring {
+      0% {
+        transform: scale(1);
+        opacity: 0.5;
+      }
+
+      100% {
+        transform: scale(1.5);
+        opacity: 0;
+      }
+    }
+
+    .animate-pulse-ring {
+      animation: pulse-ring 1.5s ease-out infinite;
+    }
+  </style>
+</head>
+
+<body>
+  <noscript>You need to enable JavaScript to run this app.</noscript>
+  <div id="root"></div>
+</body>
+
 </html>

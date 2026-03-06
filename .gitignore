@@ -208,3 +208,4 @@ __marimo__/
 
 # Generated audio files
 test_handoff.wav
+.DS_Store

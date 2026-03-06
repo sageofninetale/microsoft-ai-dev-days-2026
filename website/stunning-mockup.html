@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stunning Pipeline Layout Mockup</title>
+    <!-- Importing same fonts for accuracy -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Inter:wght@300;400;500;600&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-accent: #435A3D;
+            /* Deep Olive */
+            --text-on-dark: #FFFFFF;
+            --text-on-dark-s: rgba(255, 255, 255, 0.7);
+            --font-heading: 'Playfair Display', serif;
+            --font-body: 'Inter', sans-serif;
+            --mint: #B2D8A8;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg-accent);
+            color: var(--text-on-dark);
+            font-family: var(--font-body);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow-x: hidden;
+            background-image: radial-gradient(circle at 100% 0%, rgba(178, 216, 168, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 0% 100%, rgba(255, 255, 255, 0.05) 0%, transparent 40%);
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1300px;
+            /* Wide container */
+            padding: 0 40px;
+        }
+
+        .layout-grid {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            /* Text gets 55%, Diagram 45% */
+            gap: 60px;
+            align-items: center;
+        }
+
+        /* TEXT COLUMN */
+        .text-column {
+            padding-right: 40px;
+        }
+
+        .eyebrow {
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: 600;
+            color: var(--mint);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .eyebrow::before {
+            content: '';
+            width: 30px;
+            height: 1px;
+            background: var(--mint);
+        }
+
+        h2.title {
+            font-family: var(--font-heading);
+            font-size: clamp(36px, 4vw, 54px);
+            font-weight: 500;
+            line-height: 1.1;
+            margin: 0 0 24px 0;
+            white-space: nowrap;
+            /* FORCES ONE LINE */
+        }
+
+        h2.title em {
+            font-style: italic;
+            opacity: 0.9;
+        }
+
+        p.desc {
+            font-size: 18px;
+            line-height: 1.6;
+            color: var(--text-on-dark-s);
+            margin: 0 0 16px 0;
+            max-width: 600px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--mint);
+            color: #1a2416;
+            padding: 14px 28px;
+            border-radius: 30px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 15px;
+            margin-top: 24px;
+            transition: transform 0.3s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        /* DIAGRAM COLUMN - Compact Glassmorphism */
+        .diagram-column {
+            position: relative;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 32px;
+            padding: 60px 40px;
+            display: flex;
+            justify-content: center;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.2);
+            /* Scale diagram down slightly so it fits beautifully without taking 1000px height */
+            height: 720px;
+            /* Fixed height! */
+        }
+
+        /* Internal diagram wrapper */
+        .diagram-inner {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            height: 100%;
+        }
+
+        /* SVG Lines */
+        .svg-lines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .svg-lines path {
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.15);
+            stroke-width: 2;
+            stroke-dasharray: 6 6;
+            animation: dash 30s linear infinite;
+        }
+
+        @keyframes dash {
+            to {
+                stroke-dashoffset: -1000;
+            }
+        }
+
+        /* Glowing Nodes */
+        .node {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            width: 260px;
+            padding: 16px;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            z-index: 2;
+            transition: all 0.3s ease;
+            cursor: default;
+        }
+
+        .node:hover {
+            background: rgba(255, 255, 255, 0.08);
+            transform: translateX(-50%) translateY(-2px) scale(1.02);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .n-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            box-shadow: 0 0 15px currentColor;
+            flex-shrink: 0;
+        }
+
+        .n-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            flex-shrink: 0;
+        }
+
+        .n-icon svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .n-text {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .n-name {
+            font-family: var(--font-heading);
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .n-sub {
+            font-size: 11px;
+            color: var(--text-on-dark-s);
+        }
+
+        /* Positioning compact */
+        /* Total height 480 used */
+        .n-1 {
+            top: 0;
+        }
+
+        .n-2 {
+            top: 100px;
+        }
+
+        .n-3 {
+            top: 200px;
+        }
+
+        .n-4 {
+            top: 300px;
+        }
+
+        /* Parallels */
+        .n-5-wrap {
+            position: absolute;
+            top: 400px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 16px;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .n-p {
+            position: relative;
+            left: auto;
+            transform: none;
+            width: 160px;
+            padding: 12px;
+            flex-direction: column;
+            text-align: center;
+            gap: 8px;
+        }
+
+        .n-p .n-text {
+            align-items: center;
+        }
+
+        .n-6 {
+            top: 540px;
+        }
+
+        .n-7 {
+            top: 640px;
+            border-color: rgba(34, 197, 94, 0.4);
+            background: rgba(34, 197, 94, 0.1);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <div class="layout-grid">
+
+            <!-- Left: Text -->
+            <div class="text-column">
+                <div class="eyebrow">Multi-agent architecture</div>
+                <h2 class="title" style="letter-spacing: -0.5px;">5 specialized agents. <em>One pipeline.</em></h2>
+                <!-- Text kept short to strictly enforce 1-2 lines constraint! -->
+                <p class="desc">Every handoff flows through a verified pipeline - from your voice to a complete,
+                    safety-checked report in 30 seconds.</p>
+                <p class="desc">Each agent is a specialist. The CoordinatorAgent orchestrates them all, calculating
+                    weighted risk scores so nothing gets missed.</p>
+                <a href="#demo" class="btn">See how it works &rarr;</a>
+            </div>
+
+            <!-- Right: Premium Compact Diagram -->
+            <div class="diagram-column">
+                <div class="diagram-inner">
+                    <!-- Lines connecting centers using viewBox mapping -->
+                    <svg class="svg-lines" viewBox="0 0 400 700">
+                        <!-- Direct path down -->
+                        <path d="M 200 40 L 200 100" />
+                        <path d="M 200 140 L 200 200" />
+                        <path d="M 200 240 L 200 300" />
+                        <path d="M 200 340 L 200 380" />
+                        <!-- Branching to parallels -->
+                        <path d="M 200 380 L 115 400" />
+                        <path d="M 200 380 L 285 400" />
+                        <!-- Converging from parallels -->
+                        <path d="M 115 480 L 200 540" />
+                        <path d="M 285 480 L 200 540" />
+                        <!-- Direct path down -->
+                        <path d="M 200 580 L 200 640" />
+                    </svg>
+
+                    <!-- Nodes -->
+                    <div class="node n-1">
+                        <div class="n-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                            </svg></div>
+                        <div class="n-text">
+                            <span class="n-name">Nurse Audio Input</span>
+                            <span class="n-sub">verbal handoff</span>
+                        </div>
+                    </div>
+
+                    <div class="node n-2">
+                        <div class="n-dot" style="color: #60A5FA; background: #60A5FA;"></div>
+                        <div class="n-text">
+                            <span class="n-name">IntakeAgent</span>
+                            <span class="n-sub">Speech-to-Text Transcription</span>
+                        </div>
+                    </div>
+
+                    <div class="node n-3">
+                        <div class="n-dot" style="color: #F87171; background: #F87171;"></div>
+                        <div class="n-text">
+                            <span class="n-name">UpdateAgent</span>
+                            <span class="n-sub">Extract Structured Data</span>
+                        </div>
+                    </div>
+
+                    <div class="node n-4">
+                        <div class="n-dot" style="color: #34D399; background: #34D399;"></div>
+                        <div class="n-text">
+                            <span class="n-name">CoordinatorAgent</span>
+                            <span class="n-sub">Orchestrator &middot; Risk Scoring</span>
+                        </div>
+                    </div>
+
+                    <!-- Parallels -->
+                    <div class="n-5-wrap">
+                        <div class="node n-p">
+                            <div class="n-dot" style="color: #A7F3D0; background: #A7F3D0;"></div>
+                            <div class="n-text">
+                                <span class="n-name">VerificationAgent</span>
+                                <span class="n-sub">EMR Cross-Check</span>
+                            </div>
+                        </div>
+                        <div class="node n-p">
+                            <div class="n-dot" style="color: #FBBF24; background: #FBBF24;"></div>
+                            <div class="n-text">
+                                <span class="n-name">ProtocolAgent</span>
+                                <span class="n-sub">ACS &middot; Fall &middot; HTN</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="node n-6">
+                        <div class="n-dot" style="color: #A78BFA; background: #A78BFA;"></div>
+                        <div class="n-text">
+                            <span class="n-name">DraftGenerator</span>
+                            <span class="n-sub">Fetches ALL updates</span>
+                        </div>
+                    </div>
+
+                    <div class="node n-7">
+                        <div class="n-icon" style="color:#86efac; background: rgba(34, 197, 94, 0.2);"><svg
+                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                <polyline points="14 2 14 8 20 8" />
+                                <line x1="16" y1="13" x2="8" y2="13" />
+                                <line x1="16" y1="17" x2="8" y2="17" />
+                            </svg></div>
+                        <div class="n-text">
+                            <span class="n-name">Final Handoff Report</span>
+                            <span class="n-sub" style="color:#86efac;">Verified &middot; Ready</span>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</body>
+
+</html>

@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Horizontal Layout Mockup</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            background: var(--bg-accent);
+            padding: 60px 0;
+        }
+
+        .workflow-horizontal-layout {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 60px;
+        }
+
+        .workflow-text-center {
+            text-align: center;
+            max-width: 900px;
+            padding: 0 20px;
+        }
+
+        .workflow-text-center .workflow-title {
+            font-size: clamp(32px, 4vw, 52px);
+            margin-bottom: 24px;
+            line-height: 1.15;
+            color: var(--text-on-dark);
+        }
+
+        .workflow-text-center .workflow-body {
+            max-width: 700px;
+            margin: 0 auto 16px auto;
+            font-size: 17px;
+            color: var(--text-on-dark-s);
+            line-height: 1.7;
+        }
+
+        .workflow-diagram-horiz {
+            position: relative;
+            width: 100%;
+            max-width: 1200px;
+            height: 480px;
+            margin: 0 auto;
+        }
+
+        .wf-node-h {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            gap: 8px;
+            width: 160px;
+            z-index: 2;
+        }
+
+        .wf-h-name {
+            font-family: var(--font-heading);
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--text-on-dark);
+        }
+
+        .wf-h-sub {
+            font-size: 12px;
+            color: var(--text-on-dark-s);
+            line-height: 1.4;
+        }
+
+        .wf-h-badge {
+            font-size: 10px;
+            padding: 3px 8px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            margin-top: 4px;
+        }
+
+        .wf-h-badge--crit {
+            color: #ffb4a6;
+            background: rgba(239, 68, 68, 0.2);
+        }
+
+        .wf-h-badge--caut {
+            color: #fde68a;
+            background: rgba(245, 158, 11, 0.2);
+        }
+
+        .wf-h-badge--ver {
+            color: #86efac;
+            background: rgba(34, 197, 94, 0.2);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="workflow-horizontal-layout">
+            <div class="workflow-text-center">
+                <p class="section-eyebrow section-eyebrow--light" style="justify-content: center;">Multi-agent
+                    architecture</p>
+                <h2 class="workflow-title">5 specialized agents. <em>One pipeline.</em></h2>
+                <p class="workflow-body">Every handoff flows through a verified pipeline - from your voice to a
+                    complete, safety-checked report in 30 seconds.</p>
+                <p class="workflow-body">Each agent is a specialist. The CoordinatorAgent orchestrates them all,
+                    calculating weighted risk scores so nothing gets missed.</p>
+            </div>
+
+            <div class="workflow-diagram-horiz">
+                <svg class="workflow-lines" viewBox="0 0 1200 480" fill="none" preserveAspectRatio="xMidYMid meet"
+                    style="position:absolute; width:100%; height:100%; top:0; left:0; z-index: 1;">
+                    <line x1="80" y1="240" x2="240" y2="240" stroke="rgba(255,255,255,0.2)" stroke-width="2"
+                        stroke-dasharray="6 6" />
+                    <line x1="240" y1="240" x2="400" y2="240" stroke="rgba(255,255,255,0.2)" stroke-width="2"
+                        stroke-dasharray="6 6" />
+                    <line x1="400" y1="240" x2="560" y2="240" stroke="rgba(255,255,255,0.2)" stroke-width="2"
+                        stroke-dasharray="6 6" />
+
+                    <line x1="560" y1="240" x2="740" y2="120" stroke="rgba(255,255,255,0.2)" stroke-width="2"
+                        stroke-dasharray="6 6" />
+                    <line x1="560" y1="240" x2="740" y2="360" stroke="rgba(255,255,255,0.2)" stroke-width="2"
+                        stroke-dasharray="6 6" />
+
+                    <line x1="740" y1="120" x2="920" y2="240" stroke="rgba(255,255,255,0.2)" stroke-width="2"
+                        stroke-dasharray="6 6" />
+                    <line x1="740" y1="360" x2="920" y2="240" stroke="rgba(255,255,255,0.2)" stroke-width="2"
+                        stroke-dasharray="6 6" />
+
+                    <line x1="920" y1="240" x2="1100" y2="240" stroke="rgba(255,255,255,0.2)" stroke-width="2"
+                        stroke-dasharray="6 6" />
+                </svg>
+
+                <div class="wf-node-h" style="left: 80px; top: 240px;">
+                    <div class="wf-node-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                        </svg></div>
+                    <span class="wf-h-name">Nurse Audio Level</span>
+                    <span class="wf-h-sub">verbal handoff</span>
+                </div>
+
+                <div class="wf-node-h" style="left: 240px; top: 240px;">
+                    <div class="wf-node-dot" style="background: var(--agent-blue);"></div>
+                    <span class="wf-h-name">IntakeAgent</span>
+                    <span class="wf-h-sub">Speech-to-Text Transcription</span>
+                </div>
+
+                <div class="wf-node-h" style="left: 400px; top: 240px;">
+                    <div class="wf-node-dot" style="background: var(--agent-red);"></div>
+                    <span class="wf-h-name">UpdateAgent</span>
+                    <span class="wf-h-sub">Extract Structured Data</span>
+                </div>
+
+                <div class="wf-node-h" style="left: 560px; top: 240px;">
+                    <div class="wf-node-dot" style="background: var(--cta-mint);"></div>
+                    <span class="wf-h-name">CoordinatorAgent</span>
+                    <span class="wf-h-sub">Orchestrator &middot; Risk Scoring</span>
+                </div>
+
+                <div class="wf-node-h" style="left: 740px; top: 120px;">
+                    <div class="wf-node-dot" style="background: var(--agent-green);"></div>
+                    <span class="wf-h-name">VerificationAgent</span>
+                    <span class="wf-h-sub">EMR Cross-Check</span>
+                </div>
+
+                <div class="wf-node-h" style="left: 740px; top: 360px;">
+                    <div class="wf-node-dot" style="background: var(--agent-amber);"></div>
+                    <span class="wf-h-name">ProtocolAgent</span>
+                    <span class="wf-h-sub">ACS &middot; Fall &middot; HTN</span>
+                </div>
+
+                <div class="wf-node-h" style="left: 920px; top: 240px;">
+                    <div class="wf-node-dot" style="background: var(--agent-purple);"></div>
+                    <span class="wf-h-name">DraftGenerator</span>
+                    <span class="wf-h-sub">Fetches ALL updates</span>
+                </div>
+
+                <div class="wf-node-h" style="left: 1100px; top: 240px;">
+                    <div class="wf-node-icon" style="color:#86efac"><svg width="20" height="20" viewBox="0 0 24 24"
+                            fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <polyline points="14 2 14 8 20 8" />
+                            <line x1="16" y1="13" x2="8" y2="13" />
+                            <line x1="16" y1="17" x2="8" y2="17" />
+                        </svg></div>
+                    <span class="wf-h-name">Final Report</span>
+                    <div style="display:flex; gap:4px; justify-content:center"><span
+                            class="wf-h-badge wf-h-badge--crit">Critical</span><span
+                            class="wf-h-badge wf-h-badge--ver">Verified</span></div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
