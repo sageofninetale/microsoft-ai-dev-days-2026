@@ -46,7 +46,7 @@ async def lifespan(app: FastAPI):
     print("💧 CascadeAI API - Starting Up")
     print("="*60)
     print(f"📅 Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"🌐 CORS enabled for: http://localhost:3000")
+    print(f"🌐 CORS enabled for: http://localhost:3000, http://localhost:8888")
     print(f"✅ API ready at: http://localhost:8000")
     print(f"📚 Docs available at: http://localhost:8000/docs")
     print("="*60 + "\n")
@@ -70,7 +70,12 @@ app = FastAPI(
 # Enable CORS for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=[
+        "http://localhost:3000", 
+        "http://127.0.0.1:3000",
+        "http://localhost:8888",
+        "http://127.0.0.1:8888"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

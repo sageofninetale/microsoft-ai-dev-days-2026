@@ -574,15 +574,17 @@ function App() {
       </div>
 
       {/* ===== BACK TO WEBSITE BUTTON ===== */}
-      <div className="fixed top-4 right-4 z-40 mr-64">
-        <a 
-          href="http://localhost:8888" 
-          className="bg-white border border-slate-200 px-4 py-2 rounded-full shadow-md flex items-center gap-2 hover:bg-slate-50 transition-colors text-slate-700 font-semibold text-sm"
-        >
-          <span className="material-icons-outlined text-slate-600 text-lg">arrow_back</span>
-          Back to Website
-        </a>
-      </div>
+      {!draft && !shiftId && (
+        <div className="fixed top-4 right-4 z-40 mr-64">
+          <a 
+            href="/" 
+            className="bg-white border border-slate-200 px-4 py-2 rounded-full shadow-md flex items-center gap-2 hover:bg-slate-50 transition-colors text-slate-700 font-semibold text-sm"
+          >
+            <span className="material-icons-outlined text-slate-600 text-lg">arrow_back</span>
+            Back to Website
+          </a>
+        </div>
+      )}
 
       {/* ===== LOADING OVERLAY ===== */}
       {loading && (
@@ -1112,22 +1114,21 @@ function App() {
                             </div>
                           );
                         }
-                        const severity = (med.severity || 'GREEN').toUpperCase();
                         const status = med.status || 'VERIFIED';
-                        const sc = getSeverityClasses(severity);
                         const statusColors = {
-                          'VERIFIED': 'bg-green-100 text-green-800',
-                          'NEW': 'bg-yellow-100 text-yellow-800',
-                          'CONFLICTING': 'bg-red-100 text-red-800',
+                          'VERIFIED': { badge: 'bg-green-100 text-green-800', bar: 'bg-green-500', dot: 'bg-green-500' },
+                          'NEW': { badge: 'bg-yellow-100 text-yellow-800', bar: 'bg-yellow-400', dot: 'bg-yellow-400' },
+                          'CONFLICTING': { badge: 'bg-red-100 text-red-800', bar: 'bg-red-500', dot: 'bg-red-500' },
                         };
+                        const colors = statusColors[status] || { badge: 'bg-gray-100 text-gray-800', bar: 'bg-gray-500', dot: 'bg-gray-500' };
                         return (
                           <div key={i} className={`bg-white border border-slate-200 rounded-lg p-4 flex justify-between items-center shadow-sm relative overflow-hidden`}>
-                            <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${sc.bar}`}></div>
+                            <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${colors.bar}`}></div>
                             <div className="flex items-center gap-3 pl-2">
-                              <div className={`w-3 h-3 rounded-full ${sc.dot} shrink-0`}></div>
+                              <div className={`w-3 h-3 rounded-full ${colors.dot} shrink-0`}></div>
                               <p className="text-sm font-medium font-mono text-gray-700">{med.display || med.name}</p>
                             </div>
-                            <span className={`text-[10px] font-bold px-2 py-1 rounded tracking-wide ${statusColors[status] || 'bg-gray-100 text-gray-800'}`}>
+                            <span className={`text-[10px] font-bold px-2 py-1 rounded tracking-wide ${colors.badge}`}>
                               {status}
                             </span>
                           </div>

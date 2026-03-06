@@ -135,6 +135,124 @@ This document tracks enhancement ideas for CascadeAI to implement when time perm
 - [ ] Accessibility audit (WCAG 2.1 AA compliance)
 - [ ] Keyboard shortcuts for power users
 
+### ✅ Pending Actions Task Completion Tracking (IMPORTANT FOR ACCOUNTABILITY)
+- [ ] **Task completion tracking system for handoff accountability**
+  - **Problem**: Current system shows pending actions in handoff report, but no way to track if incoming nurse actually completes them
+  - **Solution**: Add task lifecycle tracking with checkboxes, audit trail, and smart carry-forward logic
+  
+  **What Happens Now:**
+  - Outgoing nurse creates handoff with "Pending Actions" section
+  - Incoming nurse reads handoff, sees tasks like "Give 10mg morphine at 20:00"
+  - No verification that task was actually done
+  - Tasks can get lost between shifts, patient safety risk
+  
+  **What We Need to Build:**
+  
+  **1. Database Schema Changes** (add to Supabase):
+  ```sql
+  -- Add columns to track task completion
+  ALTER TABLE patient_updates ADD COLUMN task_id UUID DEFAULT gen_random_uuid();
+  ALTER TABLE patient_updates ADD COLUMN task_status VARCHAR(20) DEFAULT 'pending';
+    -- Values: 'pending', 'in_progress', 'completed', 'cancelled'
+  ALTER TABLE patient_updates ADD COLUMN completed_at TIMESTAMP;
+  ALTER TABLE patient_updates ADD COLUMN completed_by VARCHAR(100);
+  ALTER TABLE patient_updates ADD COLUMN completion_notes TEXT;
+  ALTER TABLE patient_updates ADD COLUMN carried_forward BOOLEAN DEFAULT false;
+  ```
+  
+  **2. Frontend UI Components**:
+  - **Checkbox next to each pending action** in handoff report
+  - Click checkbox → modal appears: "Add completion note (optional)"
+  - Submit → task marked complete with timestamp
+  - Visual states:
+    * ⏳ Gray checkbox = Pending
+    * ⚙️ Blue checkbox + spinner = In Progress
+    * ✅ Green checkmark = Completed (shows who + when)
+    * 🚫 Red X = Cancelled (shows reason)
+  - Strikethrough text for completed/cancelled tasks
+  - **Filter buttons**: Show All | Pending Only | Completed Only
+  
+  **3. Backend API Endpoints**:
+  ```python
+  # New endpoint in api.py
+  @app.post("/api/task/{task_id}/complete")
+  async def complete_task(
+      task_id: str,
+      nurse_id: str,
+      completion_notes: Optional[str] = None
+  ):
+      """Mark a pending action as completed"""
+      # Update task_status to 'completed'
+      # Record completed_at timestamp
+      # Record completed_by nurse
+      # Save completion_notes
+      # Return updated task
+  
+  @app.post("/api/task/{task_id}/cancel")
+  async def cancel_task(
+      task_id: str,
+      nurse_id: str,
+      reason: str
+  ):
+      """Cancel a pending action with reason"""
+      # Update task_status to 'cancelled'
+      # Save cancellation reason
+  
+  @app.get("/api/shift/{shift_id}/tasks")
+  async def get_shift_tasks(shift_id: str, status: Optional[str] = None):
+      """Get all tasks for a shift, optionally filtered by status"""
+      # Return all pending actions with completion status
+  ```
+  
+  **4. Smart Carry-Forward Logic**:
+  - When generating new handoff, check if previous shift has incomplete tasks
+  - If task still pending after 2+ hours → auto-carry forward to next handoff
+  - Mark with 🔴 "OVERDUE" badge and escalate priority
+  - Example: "Give morphine at 20:00" not completed by 22:00 → shows in next handoff as urgent
+  
+  **5. Audit Trail & Reporting**:
+  - Track who completed each task and when
+  - Generate completion rate reports per nurse/unit
+  - Flag patterns: Nurse always skips certain task types (training issue?)
+  - Export compliance reports for management
+  
+  **Implementation Phases:**
+  
+  **Phase 1 - Basic (2-3 hours):**
+  - Add task_id and task_status columns to database
+  - Add checkbox UI next to each pending action
+  - Implement `/api/task/{id}/complete` endpoint
+  - Visual feedback: strikethrough completed tasks
+  
+  **Phase 2 - Smart (5-6 hours):**
+  - Add completion notes modal
+  - Implement carry-forward logic in DraftGenerator
+  - Add "OVERDUE" badges for old pending tasks
+  - Filter buttons (Show All, Pending, Completed)
+  
+  **Phase 3 - Advanced (10-12 hours):**
+  - Auto-detect completion from nurse updates (e.g., if nurse records "Gave morphine 10mg at 20:15", auto-complete matching pending task)
+  - Completion rate dashboard for managers
+  - Email alerts for overdue high-priority tasks
+  - Mobile push notifications for incoming nurse
+  
+  **Why This Matters:**
+  - ✅ **Accountability**: Clear record of who did what and when
+  - ✅ **Continuity**: Tasks don't get lost between shifts
+  - ✅ **Compliance**: Audit trail for regulatory requirements
+  - ✅ **Efficiency**: Nurses see what's done vs. what's still needed (no duplicate work)
+  - ✅ **Safety**: Reduces risk of missed critical tasks (medication errors, monitoring delays)
+  
+  **Success Metrics:**
+  - Task completion rate > 95% within shift
+  - Time to complete urgent tasks < 30 minutes
+  - Nurse satisfaction with task tracking > 8/10
+  - Reduction in medication errors from missed tasks
+  
+  **Estimated Effort**: 12-15 hours total (Phase 1: 3h, Phase 2: 5h, Phase 3: 10h)
+  
+  **Priority**: HIGH - Addresses critical gap in accountability loop
+
 ### 🔒 Security & Performance
 - [ ] TBD (add more as we identify them)
 

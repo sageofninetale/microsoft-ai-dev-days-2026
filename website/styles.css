@@ -1650,6 +1650,45 @@ ul {
     padding-top: 24px;
     font-size: 14px;
     color: var(--text-secondary);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+/* ===== DESIGNED BY ARYAN - WAVE ANIMATION ===== */
+.designed-by {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--bg-accent);
+    position: relative;
+    display: inline-block;
+    background: linear-gradient(
+        90deg,
+        var(--bg-accent) 0%,
+        #5A7347 25%,
+        var(--bg-accent) 50%,
+        #5A7347 75%,
+        var(--bg-accent) 100%
+    );
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: wave-flow 3s ease-in-out infinite;
+}
+
+@keyframes wave-flow {
+    0% {
+        background-position: 0% 0%;
+    }
+    50% {
+        background-position: 100% 0%;
+    }
+    100% {
+        background-position: 0% 0%;
+    }
 }
 
 /* ===== SECURITY DISCLAIMER ===== */
