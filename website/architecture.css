@@ -683,51 +683,43 @@ body.arch-body {
    ========================================= */
 
 .schema-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
     gap: 32px;
-    max-width: 1100px;
+    max-width: 1200px;
     margin: 0 auto;
 }
 
-/* Center the last 2 boxes in the second row */
-.schema-grid .schema-table:nth-child(4) {
-    grid-column: 1 / 2;
-    margin-left: auto;
-    margin-right: 16px;
-}
-
-.schema-grid .schema-table:nth-child(5) {
-    grid-column: 2 / 3;
-    margin-left: 16px;
-    margin-right: auto;
-}
-
-/* Responsive: Stack on smaller screens */
-@media (max-width: 968px) {
-    .schema-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-    
-    .schema-grid .schema-table:nth-child(4),
-    .schema-grid .schema-table:nth-child(5) {
-        grid-column: auto;
-        margin: 0;
-    }
-}
-
-@media (max-width: 640px) {
-    .schema-grid {
-        grid-template-columns: 1fr;
-    }
-}
-
 .schema-table {
+    flex: 0 1 calc(33.333% - 22px);
+    min-width: 300px;
+    text-align: left;
     background: var(--arch-bg-soft);
     border: 1px solid var(--arch-border);
     border-radius: 8px;
     overflow: hidden;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+/* No special styling needed - text-align:center on parent handles it */
+
+/* Responsive */
+@media (max-width: 1100px) {
+    .schema-table {
+        flex: 0 1 calc(50% - 16px);
+    }
+}
+
+@media (max-width: 768px) {
+    .schema-grid {
+        gap: 20px;
+    }
+
+    .schema-table {
+        flex: 0 1 100%;
+        min-width: 0;
+    }
 }
 
 .schema-header {
