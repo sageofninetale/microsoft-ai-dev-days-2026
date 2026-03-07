@@ -239,57 +239,7 @@
         </div>
     </section>
 
-    <!-- ============ SECTION 4: API ARCHITECTURE ============ -->
-    <section class="arch-section">
-        <div class="container">
-            <div class="arch-section-header">
-                <h2>API Architecture</h2>
-                <p>Simple, predictable REST endpoints for the clinical frontend.</p>
-            </div>
-
-            <!-- Stripe-Inspired Split View -->
-            <div class="api-split">
-                <div class="api-docs">
-                    <div class="api-endpoint">
-                        <span class="method post">POST</span>
-                        <span class="path">/api/handoff/intake</span>
-                    </div>
-                    <p>Expects a Base64-encoded WebM audio payload containing the Nurse's spoken handoff notes.</p>
-
-                    <div class="api-endpoint mt-4">
-                        <span class="method post">POST</span>
-                        <span class="path">/api/patient/{id}/draft</span>
-                    </div>
-                    <p>Forces the generation of the final structured JSON draft and saves to the Supabase Postgres
-                        instance.</p>
-                </div>
-
-                <div class="api-code-window">
-                    <div class="window-headers">
-                        <span></span><span></span><span></span>
-                    </div>
-                    <div class="code-container">
-                        <pre><code><span class="req-title">Request Payload</span>
-{
-  <span class="code-key">"nurse_id"</span>: <span class="code-str">"usr_98a71b"</span>,
-  <span class="code-key">"patient_mrn"</span>: <span class="code-str">"PT-44810"</span>,
-  <span class="code-key">"audio_data"</span>: <span class="code-str">"GkXfowEAAAAAAAAfQoaBAUL3gQFC8..."</span>,
-  <span class="code-key">"mime_type"</span>: <span class="code-str">"audio/webm"</span>
-}
-
-<span class="res-title">Response</span>
-{
-  <span class="code-key">"status"</span>: <span class="code-str">"processing"</span>,
-  <span class="code-key">"job_id"</span>: <span class="code-str">"handoff_3a91b"</span>,
-  <span class="code-key">"estimated_latency_ms"</span>: <span class="code-num">42000</span>
-}</code></pre>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- ============ SECTION 5: DATA PIPELINE ============ -->
+    <!-- ============ SECTION 4: DATA PIPELINE ============ -->
     <section class="arch-section bg-gradient-dark">
         <div class="container">
             <div class="arch-section-header">
@@ -332,7 +282,7 @@
         </div>
     </section>
 
-    <!-- ============ SECTION 6: DATABASE SCHEMA ============ -->
+    <!-- ============ SECTION 5: DATABASE SCHEMA ============ -->
     <section class="arch-section">
         <div class="container">
             <div class="arch-section-header">
