@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>CascadeAI - Shift Setup Dashboard</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;family=Playfair+Display:ital,wght@0,400..900;1,400..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#C5E35C", // The lime-yellow from the "Book a demo" button
+                        "forest-green": "#3D522B", // The deep green from the landing page cards
+                        "background-light": "#F9F9F7", // Soft off-white
+                        "background-dark": "#121410",
+                    },
+                    fontFamily: {
+                        display: ["Playfair Display", "serif"],
+                        sans: ["Inter", "sans-serif"],
+                    },
+                    borderRadius: {
+                        DEFAULT: "24px",
+                        'lg': "32px",
+                    },
+                },
+            },
+        };
+    </script>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .serif-text {
+            font-family: 'Playfair Display', serif;
+        }
+        .italic-serif {
+            font-family: 'Playfair Display', serif;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-800 dark:text-slate-200 min-h-screen flex">
+<main class="flex-1 flex flex-col items-center justify-center p-8 lg:p-12">
+<div class="max-w-3xl w-full text-center mb-12">
+<p class="text-xs font-bold tracking-[0.2em] uppercase text-forest-green dark:text-primary mb-4">Powered by Azure AI</p>
+<h1 class="text-5xl lg:text-7xl serif-text text-slate-900 dark:text-white leading-tight mb-4">
+                Ready for <span class="italic-serif">your shift?</span>
+</h1>
+<p class="text-slate-600 dark:text-slate-400 text-lg">
+                Select your assignment to let CascadeAI begin verifying EMR records and preparing your handoff workspace.
+            </p>
+</div>
+<div class="max-w-2xl w-full bg-white dark:bg-[#1a1c18] p-10 rounded-[40px] shadow-sm border border-slate-100 dark:border-slate-800">
+<div class="space-y-8">
+<div>
+<label class="block text-sm font-semibold text-slate-500 dark:text-slate-400 mb-3 ml-2">Assigned Nurse</label>
+<div class="relative">
+<select class="w-full appearance-none bg-slate-50 dark:bg-slate-900 border-none rounded-2xl py-5 px-6 focus:ring-2 focus:ring-forest-green dark:focus:ring-primary text-lg cursor-pointer">
+<option value="">Search or select a nurse...</option>
+<option value="1">Sarah Jenkins (You)</option>
+<option value="2">Michael Chen, RN</option>
+<option value="3">Elena Rodriguez, NP</option>
+<option value="4">David Park, RN</option>
+</select>
+<div class="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none">
+<span class="material-icons-outlined text-slate-400">expand_more</span>
+</div>
+</div>
+</div>
+<div>
+<div class="flex justify-between items-center mb-3 ml-2">
+<label class="block text-sm font-semibold text-slate-500 dark:text-slate-400">Patient IDs</label>
+<span class="text-xs text-slate-400">Separate with commas</span>
+</div>
+<div class="relative">
+<textarea class="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl py-5 px-6 focus:ring-2 focus:ring-forest-green dark:focus:ring-primary text-lg resize-none" placeholder="e.g. 1024-A, 1024-B, 1025-C" rows="3"></textarea>
+</div>
+</div>
+<div class="flex items-center gap-4 p-4 bg-forest-green/5 dark:bg-primary/5 rounded-2xl border border-forest-green/10 dark:border-primary/10">
+<span class="material-icons-outlined text-forest-green dark:text-primary">verified_user</span>
+<p class="text-sm text-slate-600 dark:text-slate-300">
+<strong>5 AI Agents</strong> will cross-check clinical data against EMR records as you start.
+                    </p>
+</div>
+<button class="w-full bg-primary hover:opacity-90 transition-all text-slate-900 font-bold py-6 rounded-2xl text-xl flex items-center justify-center gap-2 group">
+                    Start Shift
+                    <span class="material-icons-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
+</button>
+</div>
+</div>
+<div class="mt-12 flex gap-8 text-sm font-medium text-slate-400">
+<a class="hover:text-forest-green dark:hover:text-primary transition-colors" href="#">Privacy Policy</a>
+<a class="hover:text-forest-green dark:hover:text-primary transition-colors" href="#">Support</a>
+<a class="hover:text-forest-green dark:hover:text-primary transition-colors" href="#">v2.4.0</a>
+</div>
+</main>
+</body></html>

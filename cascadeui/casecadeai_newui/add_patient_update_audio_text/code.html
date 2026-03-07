@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html class="scroll-smooth" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Patient Update - CascadeAI</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&amp;family=Playfair+Display:ital,wght@0,400..900;1,400..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#C3E85D", // The signature lime-yellow from the screenshots
+                        "background-light": "#F9FAF9",
+                        "background-dark": "#121812",
+                        "brand-green": "#3D5233",
+                    },
+                    fontFamily: {
+                        display: ["Playfair Display", "serif"],
+                        sans: ["DM+Sans", "sans-serif"],
+                    },
+                    borderRadius: {
+                        DEFAULT: "1rem",
+                        'xl': '2rem',
+                    },
+                },
+            },
+        };
+    </script>
+<style>
+        .waveform-bar {
+            animation: waveform 1.2s ease-in-out infinite;
+        }
+        @keyframes waveform {
+            0%, 100% { height: 8px; }
+            50% { height: 24px; }
+        }
+        .waveform-bar:nth-child(2) { animation-delay: 0.1s; }
+        .waveform-bar:nth-child(3) { animation-delay: 0.2s; }
+        .waveform-bar:nth-child(4) { animation-delay: 0.3s; }
+        .waveform-bar:nth-child(5) { animation-delay: 0.4s; }
+        .waveform-bar:nth-child(6) { animation-delay: 0.5s; }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-sans min-h-screen">
+<main class="max-w-7xl mx-auto px-6 py-12">
+<div class="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
+<div>
+<p class="text-brand-green dark:text-primary font-medium tracking-widest uppercase text-xs mb-2">Patient Update</p>
+<h1 class="font-display text-4xl md:text-5xl italic dark:text-white">Add new observation</h1>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+<div class="lg:col-span-12 bg-white dark:bg-slate-900 rounded-xl shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-800 overflow-hidden">
+<div class="p-8 md:p-12">
+<div class="mb-10 text-center border-b border-slate-100 dark:border-slate-800 pb-8">
+<h2 class="text-sm font-bold uppercase tracking-widest text-slate-400 mb-2">Add Patient Update</h2>
+<h3 class="font-display text-3xl italic text-brand-green dark:text-primary">Thomas Marks | Bed 12</h3>
+</div>
+<div class="mb-12">
+<label class="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-4 text-center">Select Update Type</label>
+<div class="flex flex-wrap items-center justify-center gap-4">
+<button class="px-6 py-3 rounded-full border-2 border-brand-green bg-brand-green text-primary font-medium transition-colors hover:bg-brand-green/90">
+                                Medication
+                            </button>
+<button class="px-6 py-3 rounded-full border-2 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-medium transition-colors hover:border-brand-green hover:text-brand-green dark:hover:text-primary">
+                                Vitals
+                            </button>
+<button class="px-6 py-3 rounded-full border-2 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-medium transition-colors hover:border-brand-green hover:text-brand-green dark:hover:text-primary">
+                                Procedure
+                            </button>
+<button class="px-6 py-3 rounded-full border-2 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-medium transition-colors hover:border-brand-green hover:text-brand-green dark:hover:text-primary">
+                                General
+                            </button>
+</div>
+</div>
+<div class="flex flex-col items-center text-center mb-16">
+<div class="w-full max-w-md bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-8 mb-8 flex flex-col items-center border border-dashed border-slate-200 dark:border-slate-700">
+<div class="flex items-end gap-1.5 h-12 mb-8">
+<div class="waveform-bar w-1.5 bg-primary rounded-full"></div>
+<div class="waveform-bar w-1.5 bg-primary rounded-full"></div>
+<div class="waveform-bar w-1.5 bg-primary rounded-full"></div>
+<div class="waveform-bar w-1.5 bg-primary rounded-full"></div>
+<div class="waveform-bar w-1.5 bg-primary rounded-full"></div>
+<div class="waveform-bar w-1.5 bg-primary rounded-full"></div>
+<div class="waveform-bar w-1.5 bg-primary rounded-full"></div>
+<div class="waveform-bar w-1.5 bg-primary rounded-full"></div>
+</div>
+<button class="group relative bg-primary hover:bg-[#b0d250] text-brand-green font-bold py-5 px-10 rounded-full flex items-center gap-3 transition-all transform hover:scale-105 active:scale-95 shadow-lg shadow-primary/20">
+<span class="material-icons-outlined">mic</span>
+                                Record Audio Update
+                                <span class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 border-2 border-white dark:border-slate-900 rounded-full animate-pulse"></span>
+</button>
+<p class="mt-4 text-sm text-slate-500 dark:text-slate-400 italic">"Patient reports improved mobility in left hip..."</p>
+</div>
+<div class="flex items-center gap-4 w-full">
+<div class="h-px flex-1 bg-slate-200 dark:bg-slate-800"></div>
+<span class="text-xs uppercase tracking-widest text-slate-400 font-bold">OR</span>
+<div class="h-px flex-1 bg-slate-200 dark:bg-slate-800"></div>
+</div>
+</div>
+<div>
+<label class="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
+<span class="material-icons-outlined text-brand-green dark:text-primary text-sm">edit_note</span>
+                            Type Text Observation
+                        </label>
+<div class="relative group">
+<textarea class="w-full bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 rounded-2xl p-6 min-h-[200px] text-lg focus:ring-primary focus:border-primary transition-all placeholder:text-slate-400" placeholder="Describe the update here..."></textarea>
+<div class="absolute bottom-4 right-4 flex items-center gap-2">
+<span class="text-xs text-slate-400">Auto-saving...</span>
+<button class="bg-brand-green hover:bg-black text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition-colors">
+                                    Submit
+                                    <span class="material-icons-outlined text-sm">send</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<footer class="fixed bottom-8 left-1/2 -translate-x-1/2 w-full max-w-sm px-6 pointer-events-none">
+<div class="bg-brand-green/90 dark:bg-slate-900/90 backdrop-blur-xl border border-white/10 p-2 rounded-2xl shadow-2xl pointer-events-auto flex items-center justify-around">
+<button class="p-3 text-white/50 hover:text-primary transition-colors">
+<span class="material-icons-outlined">dashboard</span>
+</button>
+<button class="p-4 bg-primary text-brand-green rounded-xl shadow-lg">
+<span class="material-icons-outlined">add</span>
+</button>
+<button class="p-3 text-white/50 hover:text-primary transition-colors">
+<span class="material-icons-outlined">group</span>
+</button>
+</div>
+</footer>
+</body></html>

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Clinical Actions and Pending Tasks Command Center</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#D4FF3E", // Lime yellow
+                        secondary: "#1B3B2B", // Forest green
+                        "background-light": "#F7F6F2", // Off-white/cream
+                        "background-dark": "#0D1B14",
+                        "surface-light": "#FFFFFF",
+                        "surface-dark": "#16281F",
+                        "border-light": "#E5E3D8",
+                        "border-dark": "#2A4134",
+                        "text-light": "#1B3B2B",
+                        "text-dark": "#F7F6F2",
+                        "text-muted-light": "#5C7365",
+                        "text-muted-dark": "#9EAD8C",
+                        "alert-red": "#FF4D4D",
+                        "alert-orange": "#FF9900",
+                        "alert-blue": "#4D94FF"
+                    },
+                    fontFamily: {
+                        display: ["Playfair Display", "serif"],
+                        body: ["Inter", "sans-serif"],
+                    },
+                    borderRadius: {
+                        DEFAULT: "0.5rem",
+                    },
+                },
+            },
+        };
+    </script>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        h1, h2, h3, h4, h5, h6, .font-display {
+            font-family: 'Playfair Display', serif;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-text-light dark:text-text-dark min-h-screen antialiased flex flex-col">
+<main class="flex-grow flex p-6 gap-6 max-w-screen-2xl mx-auto w-full justify-center">
+<div class="flex-grow space-y-8 max-w-4xl mx-auto">
+<div class="flex items-center justify-between border-b border-border-light dark:border-border-dark pb-4">
+<div>
+<h1 class="font-display text-3xl font-bold flex items-center gap-3">
+<span class="material-icons text-secondary dark:text-primary text-3xl">dynamic_feed</span>
+                        Clinical Command Center
+                    </h1>
+<p class="text-text-muted-light dark:text-text-muted-dark mt-1">Reviewing key changes and pending actions for Thomas Marks.</p>
+</div>
+</div>
+<section>
+<h2 class="font-display text-2xl font-bold mb-4 flex items-center gap-2">
+<span class="material-icons text-alert-orange">notifications_active</span>
+                    Key Changes
+                </h2>
+<div class="space-y-3">
+<div class="bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg p-4 flex gap-4 shadow-sm relative overflow-hidden">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-secondary dark:bg-primary"></div>
+<div class="w-8 h-8 rounded-full bg-secondary/10 dark:bg-primary/20 flex items-center justify-center shrink-0">
+<span class="material-icons text-secondary dark:text-primary text-sm">medication</span>
+</div>
+<div>
+<p class="text-sm font-medium leading-relaxed">
+                                Aspirin and two acetaminophen-containing products (Dolo 350 and Crocin 350) were administered at <span class="font-semibold">12:47 AM</span>.
+                            </p>
+</div>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg p-4 flex gap-4 shadow-sm relative overflow-hidden">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-secondary dark:bg-primary"></div>
+<div class="w-8 h-8 rounded-full bg-secondary/10 dark:bg-primary/20 flex items-center justify-center shrink-0">
+<span class="material-icons text-secondary dark:text-primary text-sm">monitor_heart</span>
+</div>
+<div>
+<p class="text-sm font-medium leading-relaxed">
+                                No vital signs documented in the provided update.
+                            </p>
+</div>
+</div>
+</div>
+</section>
+<section>
+<div class="flex items-center justify-between mb-4">
+<h2 class="font-display text-2xl font-bold flex items-center gap-2">
+<span class="material-icons text-secondary dark:text-primary">fact_check</span>
+                        Pending Actions
+                    </h2>
+<span class="bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark px-3 py-1 rounded-full text-xs font-semibold shadow-sm">
+                        4 Tasks
+                    </span>
+</div>
+<div class="space-y-4">
+<div class="bg-surface-light dark:bg-surface-dark border border-alert-red/30 rounded-lg shadow-sm relative overflow-hidden group hover:border-alert-red transition-colors">
+<div class="absolute left-0 top-0 bottom-0 w-1.5 bg-alert-red"></div>
+<div class="p-4 pl-6 flex items-start gap-4">
+<div class="mt-0.5">
+<span class="material-icons text-alert-red bg-alert-red/10 p-1.5 rounded text-lg">error</span>
+</div>
+<div class="flex-grow">
+<div class="flex justify-between items-start gap-4 mb-1">
+<p class="text-sm font-medium leading-relaxed pr-4">
+                                        Verify exact doses and times for the aspirin given at 12:47 AM and reconcile with EMR aspirin order (confirm whether this was the scheduled daily dose).
+                                    </p>
+<span class="shrink-0 bg-alert-red text-white text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wide">Critical</span>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark border border-alert-orange/30 rounded-lg shadow-sm relative overflow-hidden group hover:border-alert-orange transition-colors">
+<div class="absolute left-0 top-0 bottom-0 w-1.5 bg-alert-orange"></div>
+<div class="p-4 pl-6 flex items-start gap-4">
+<div class="mt-0.5">
+<span class="material-icons text-alert-orange bg-alert-orange/10 p-1.5 rounded text-lg">warning</span>
+</div>
+<div class="flex-grow">
+<div class="flex justify-between items-start gap-4 mb-1">
+<p class="text-sm font-medium leading-relaxed pr-4">
+                                        Confirm that Dolo 350 and Crocin 350 contain acetaminophen; calculate patient's total acetaminophen in the previous 24 hours and document. If total &gt;3000-4000 mg (depending on local protocol), notify prescribing clinician and consider LFTs.
+                                    </p>
+<span class="shrink-0 bg-alert-orange text-white text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wide">High</span>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark border border-alert-orange/30 rounded-lg shadow-sm relative overflow-hidden group hover:border-alert-orange transition-colors">
+<div class="absolute left-0 top-0 bottom-0 w-1.5 bg-alert-orange"></div>
+<div class="p-4 pl-6 flex items-start gap-4">
+<div class="mt-0.5">
+<span class="material-icons text-alert-orange bg-alert-orange/10 p-1.5 rounded text-lg">vital_signs</span>
+</div>
+<div class="flex-grow">
+<div class="flex justify-between items-start gap-4 mb-1">
+<p class="text-sm font-medium leading-relaxed pr-4">
+                                        Obtain and document current vital signs (HR, BP, SpO2, temperature, RR) and pain score to assess response to analgesics and screen for adverse effects.
+                                    </p>
+<span class="shrink-0 bg-alert-orange text-white text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wide">High</span>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark border border-alert-blue/30 rounded-lg shadow-sm relative overflow-hidden group hover:border-alert-blue transition-colors">
+<div class="absolute left-0 top-0 bottom-0 w-1.5 bg-alert-blue"></div>
+<div class="p-4 pl-6 flex items-start gap-4">
+<div class="mt-0.5">
+<span class="material-icons text-alert-blue bg-alert-blue/10 p-1.5 rounded text-lg">edit_document</span>
+</div>
+<div class="flex-grow">
+<div class="flex justify-between items-start gap-4 mb-1">
+<p class="text-sm font-medium leading-relaxed pr-4">
+                                        Update medication administration record (MAR) with details of the 12:47 AM administrations and reconcile the active medication list in the EMR (flag duplicates).
+                                    </p>
+<span class="shrink-0 bg-alert-blue text-white text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wide">Routine</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section class="mt-8">
+<h2 class="font-display text-xl font-bold mb-3 flex items-center gap-2">
+<span class="material-icons text-text-muted-light dark:text-text-muted-dark">notes</span>
+                    Narrative Summary
+                </h2>
+<div class="bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-lg p-5 shadow-sm text-sm leading-relaxed text-text-muted-light dark:text-text-muted-dark relative">
+<button class="absolute top-4 right-4 text-secondary dark:text-primary hover:opacity-80 transition-opacity flex items-center gap-1 text-xs font-semibold bg-secondary/5 dark:bg-primary/10 px-2 py-1 rounded">
+<span class="material-icons text-sm">content_copy</span> Copy
+                    </button>
+<p class="pr-16">
+                        Thomas Marks (Unknown, Room Unknown) had a stable shift with vital signs not documented during the shift (HR not recorded, BP not recorded). At 00:47, the patient was given aspirin, Dolo 350 and Crocin 350 for symptomatic relief. Current EMR home medications include Metoprolol 25 mg BID...
+                    </p>
+<a class="text-secondary dark:text-primary font-medium mt-2 inline-block hover:underline" href="#">Read full narrative</a>
+</div>
+</section>
+</div>
+</main>
+</body></html>

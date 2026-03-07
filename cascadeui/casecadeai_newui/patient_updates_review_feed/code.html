@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Review &amp; Handoff | CascadeAI</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Playfair+Display:ital,wght@0,700;1,700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#C5E86C", 
+                        brand: {
+                            dark: "#2D4123", 
+                            light: "#F8F9F5",
+                            muted: "#4A5D3F"
+                        },
+                        "background-light": "#F8F9F5",
+                        "background-dark": "#0A0D08",
+                    },
+                    fontFamily: {
+                        display: ["Playfair Display", "serif"],
+                        sans: ["Inter", "sans-serif"],
+                    },
+                    borderRadius: {
+                        DEFAULT: "12px",
+                        'xl': '24px',
+                    },
+                },
+            },
+        };
+    </script>
+<style type="text/tailwindcss">
+        .serif-italic { font-style: italic; font-family: 'Playfair Display', serif; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        :root {
+            --brand-deep-green: #2D4123;
+            --brand-lime: #C5E86C;
+            --brand-off-white: #F8F9F5;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-sans min-h-screen flex flex-col">
+<main class="flex flex-1 overflow-hidden h-screen justify-center">
+<section class="w-full max-w-4xl flex flex-col bg-brand-light dark:bg-slate-950 overflow-y-auto no-scrollbar border-x border-slate-200 dark:border-slate-800">
+<div class="w-full p-12 space-y-12">
+<div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden">
+<div class="p-8">
+<div class="flex items-center justify-between mb-8">
+<div class="flex items-center gap-4">
+<div class="bg-blue-600 text-white w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm">3</div>
+<h2 class="font-display text-3xl text-brand-dark dark:text-white">View All <span class="serif-italic">Updates</span></h2>
+</div>
+<button class="flex items-center gap-2 px-6 py-2 border border-slate-200 dark:border-slate-700 rounded-full text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+<span class="material-symbols-outlined text-lg">search</span>
+                            Show All Updates
+                        </button>
+</div>
+<div class="space-y-4">
+<div class="bg-white dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700 rounded-xl p-6 transition-all hover:shadow-md">
+<div class="flex items-center justify-between mb-4">
+<div class="flex items-center gap-3">
+<span class="text-slate-400 font-bold text-sm tracking-tight">#1</span>
+<span class="text-slate-400 text-sm">27/02/2026, 00:47:18</span>
+<span class="bg-blue-50 text-blue-700 px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider">Medication</span>
+<span class="flex items-center gap-1 bg-amber-50 text-amber-700 px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border border-amber-100">
+<span class="material-symbols-outlined text-xs">warning</span>
+                                        Unverified
+                                    </span>
+</div>
+</div>
+<p class="font-display text-xl text-brand-dark dark:text-slate-200 leading-relaxed">
+                                So we gave him <span class="serif-italic font-bold">aspirin</span>, <span class="serif-italic font-bold">Dolo 350</span> and <span class="serif-italic font-bold">crocin 350</span>.
+                            </p>
+</div>
+<div class="bg-white dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700 rounded-xl p-6 transition-all hover:shadow-md opacity-60 grayscale-[0.5]">
+<div class="flex items-center justify-between mb-4">
+<div class="flex items-center gap-3">
+<span class="text-slate-400 font-bold text-sm tracking-tight">#2</span>
+<span class="text-slate-400 text-sm">27/02/2026, 00:42:10</span>
+<span class="bg-purple-50 text-purple-700 px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider">Observation</span>
+</div>
+</div>
+<p class="font-display text-xl text-brand-dark dark:text-slate-200 leading-relaxed">
+                                Patient is resting comfortably, respirations are stable at <span class="serif-italic font-bold">18 bpm</span>.
+                            </p>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden">
+<div class="p-8">
+<div class="flex items-center gap-4 mb-8">
+<div class="bg-blue-600 text-white w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm">4</div>
+<h2 class="font-display text-3xl text-brand-dark dark:text-white">Generate <span class="serif-italic text-brand-dark">Draft Handoff</span></h2>
+</div>
+<button class="w-full bg-primary hover:bg-[#B5D85C] text-brand-dark py-5 px-8 rounded-xl font-bold text-lg flex items-center justify-center gap-3 transition-all hover:scale-[1.01] shadow-xl shadow-primary/10">
+<span class="material-symbols-outlined">assignment_turned_in</span>
+                        Generate Draft Handoff
+                    </button>
+<p class="mt-6 text-center text-slate-400 text-sm italic">
+                        The AI will aggregate all verified updates into a clinical-grade handoff report.
+                    </p>
+</div>
+</div>
+</div>
+</section>
+</main>
+<div class="fixed bottom-8 right-8 z-[60]">
+<button class="w-20 h-20 bg-brand-dark rounded-full shadow-2xl flex items-center justify-center group hover:scale-110 transition-transform border-4 border-primary/30 relative">
+<span class="material-symbols-outlined text-primary text-4xl">mic</span>
+<div class="absolute inset-0 bg-primary/20 rounded-full animate-ping"></div>
+<div class="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full border-4 border-white dark:border-slate-900 z-10"></div>
+</button>
+</div>
+</body></html>
