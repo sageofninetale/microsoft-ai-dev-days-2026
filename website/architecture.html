@@ -50,7 +50,7 @@
                 <h1 class="arch-title">The intelligence behind<br>the handoff.</h1>
                 <p class="arch-subtitle">CascadeAI orchestrates six specialized AI agents native to Microsoft Azure,
                     combining real-time speech processing, strict clinical protocol matching, and EMR data
-                    synchronization in sub-30 seconds.</p>
+                    synchronization with typical response times under 45 seconds.</p>
             </div>
         </div>
     </header>
@@ -121,7 +121,7 @@
                             <span>Draft</span>
                             <span>Coord</span>
                         </div>
-                        <div class="tech-tag fluid">Azure OpenAI (gpt-4o)</div>
+                        <div class="tech-tag fluid">Azure OpenAI (gpt-5-mini)</div>
                     </div>
 
                     <div class="diagram-box db-box">
@@ -163,7 +163,7 @@
                     <div class="stack-icon">🧠</div>
                     <h3>AI & ML</h3>
                     <p>Azure OpenAI & Speech</p>
-                    <div class="stack-detail">gpt-4o reasoning combined with HIPAA-compliant transcription.</div>
+                    <div class="stack-detail">gpt-5-mini reasoning combined with HIPAA-compliant transcription.</div>
                 </div>
                 <div class="stack-card">
                     <div class="stack-icon">🗄️</div>
@@ -255,15 +255,13 @@
                         <span class="method post">POST</span>
                         <span class="path">/api/handoff/intake</span>
                     </div>
-                    <p>Expects a Base64-encoded WebM audio payload containing the Nurse's spoken handoff notes.
-                        Authenticated via Azure AD App Registration tokens.</p>
+                    <p>Expects a Base64-encoded WebM audio payload containing the Nurse's spoken handoff notes.</p>
 
                     <div class="api-endpoint mt-4">
                         <span class="method post">POST</span>
-                        <span class="path">/api/shift/draft</span>
+                        <span class="path">/api/patient/{id}/draft</span>
                     </div>
-                    <p>Forces the generation of the final structured JSON draft and triggers the webhook to write to the
-                        Supabase Postgres instance.</p>
+                    <p>Forces the generation of the final structured JSON draft and saves to the Supabase Postgres instance.</p>
                 </div>
 
                 <div class="api-code-window">
@@ -283,7 +281,7 @@
 {
   <span class="code-key">"status"</span>: <span class="code-str">"processing"</span>,
   <span class="code-key">"job_id"</span>: <span class="code-str">"handoff_3a91b"</span>,
-  <span class="code-key">"estimated_latency_ms"</span>: <span class="code-num">28500</span>
+  <span class="code-key">"estimated_latency_ms"</span>: <span class="code-num">42000</span>
 }</code></pre>
                     </div>
                 </div>
@@ -296,7 +294,7 @@
         <div class="container">
             <div class="arch-section-header">
                 <h2>Real-Time Data Pipeline</h2>
-                <p>From spoken word to structured EMR insertion in less than 30 seconds.</p>
+                <p>From spoken word to structured EMR insertion in under 45 seconds.</p>
             </div>
 
             <!-- PostHog-Inspired Pipeline Tracker -->
@@ -357,21 +355,59 @@
                             <span class="col-type">uuid <span class="pk">PK</span></span>
                         </div>
                         <div class="schema-row">
-                            <span class="col-name">created_at</span>
-                            <span class="col-type">timestamptz</span>
-                        </div>
-                        <div class="schema-row">
-                            <span class="col-name">mrn</span>
+                            <span class="col-name">patient_id</span>
                             <span class="col-type">text <span class="unique">UNIQUE</span></span>
                         </div>
                         <div class="schema-row">
-                            <span class="col-name">baseline_status</span>
+                            <span class="col-name">name</span>
+                            <span class="col-type">text</span>
+                        </div>
+                        <div class="schema-row">
+                            <span class="col-name">age</span>
+                            <span class="col-type">integer</span>
+                        </div>
+                        <div class="schema-row">
+                            <span class="col-name">medications</span>
+                            <span class="col-type">jsonb</span>
+                        </div>
+                        <div class="schema-row">
+                            <span class="col-name">vitals_history</span>
                             <span class="col-type">jsonb</span>
                         </div>
                     </div>
                 </div>
 
                 <!-- Table 2 -->
+                <div class="schema-table">
+                    <div class="schema-header">
+                        <span class="table-icon">🏥</span>
+                        <span class="table-name">public.nurse_shifts</span>
+                    </div>
+                    <div class="schema-rows">
+                        <div class="schema-row">
+                            <span class="col-name">id</span>
+                            <span class="col-type">uuid <span class="pk">PK</span></span>
+                        </div>
+                        <div class="schema-row">
+                            <span class="col-name">nurse_id</span>
+                            <span class="col-type">text</span>
+                        </div>
+                        <div class="schema-row">
+                            <span class="col-name">shift_type</span>
+                            <span class="col-type">text</span>
+                        </div>
+                        <div class="schema-row">
+                            <span class="col-name">patient_ids</span>
+                            <span class="col-type">text[]</span>
+                        </div>
+                        <div class="schema-row">
+                            <span class="col-name">status</span>
+                            <span class="col-type">text</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Table 3 -->
                 <div class="schema-table">
                     <div class="schema-header">
                         <span class="table-icon">📋</span>
@@ -383,25 +419,35 @@
                             <span class="col-type">uuid <span class="pk">PK</span></span>
                         </div>
                         <div class="schema-row">
+                            <span class="col-name">shift_id</span>
+                            <span class="col-type">uuid <span class="fk">FK</span></span>
+                        </div>
+                        <div class="schema-row">
                             <span class="col-name">patient_id</span>
-                            <span class="col-type">uuid <span class="fk">FK</span></span>
+                            <span class="col-type">text <span class="fk">FK</span></span>
                         </div>
                         <div class="schema-row">
-                            <span class="col-name">nurse_id</span>
-                            <span class="col-type">uuid <span class="fk">FK</span></span>
-                        </div>
-                        <div class="schema-row">
-                            <span class="col-name">clinical_notes</span>
+                            <span class="col-name">update_type</span>
                             <span class="col-type">text</span>
                         </div>
                         <div class="schema-row">
-                            <span class="col-name">embedding</span>
-                            <span class="col-type">vector(1536)</span>
+                            <span class="col-name">transcription</span>
+                            <span class="col-type">text</span>
+                        </div>
+                        <div class="schema-row">
+                            <span class="col-name">extracted_data</span>
+                            <span class="col-type">jsonb</span>
+                        </div>
+                        <div class="schema-row">
+                            <span class="col-name">emr_verified</span>
+                            <span class="col-type">boolean</span>
                         </div>
                     </div>
                 </div>
+                    </div>
+                </div>
 
-                <!-- Table 3 -->
+                <!-- Table 4 -->
                 <div class="schema-table">
                     <div class="schema-header">
                         <span class="table-icon">📄</span>
@@ -418,11 +464,45 @@
                         </div>
                         <div class="schema-row">
                             <span class="col-name">status</span>
-                            <span class="col-type">handoff_status</span>
+                            <span class="col-type">text</span>
                         </div>
                         <div class="schema-row">
                             <span class="col-name">structured_data</span>
                             <span class="col-type">jsonb</span>
+                        </div>
+                        <div class="schema-row">
+                            <span class="col-name">narrative_summary</span>
+                            <span class="col-type">text</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Table 5 -->
+                <div class="schema-table">
+                    <div class="schema-header">
+                        <span class="table-icon">📨</span>
+                        <span class="table-name">public.sent_handoffs</span>
+                    </div>
+                    <div class="schema-rows">
+                        <div class="schema-row">
+                            <span class="col-name">id</span>
+                            <span class="col-type">uuid <span class="pk">PK</span></span>
+                        </div>
+                        <div class="schema-row">
+                            <span class="col-name">draft_id</span>
+                            <span class="col-type">uuid <span class="fk">FK</span></span>
+                        </div>
+                        <div class="schema-row">
+                            <span class="col-name">from_nurse_id</span>
+                            <span class="col-type">text</span>
+                        </div>
+                        <div class="schema-row">
+                            <span class="col-name">to_nurse_id</span>
+                            <span class="col-type">text</span>
+                        </div>
+                        <div class="schema-row">
+                            <span class="col-name">status</span>
+                            <span class="col-type">text</span>
                         </div>
                     </div>
                 </div>
