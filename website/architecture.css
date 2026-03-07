@@ -684,10 +684,42 @@ body.arch-body {
 
 .schema-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    grid-template-columns: repeat(3, 1fr);
     gap: 32px;
     max-width: 1100px;
     margin: 0 auto;
+}
+
+/* Center the last 2 boxes in the second row */
+.schema-grid .schema-table:nth-child(4) {
+    grid-column: 1 / 2;
+    margin-left: auto;
+    margin-right: 16px;
+}
+
+.schema-grid .schema-table:nth-child(5) {
+    grid-column: 2 / 3;
+    margin-left: 16px;
+    margin-right: auto;
+}
+
+/* Responsive: Stack on smaller screens */
+@media (max-width: 968px) {
+    .schema-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .schema-grid .schema-table:nth-child(4),
+    .schema-grid .schema-table:nth-child(5) {
+        grid-column: auto;
+        margin: 0;
+    }
+}
+
+@media (max-width: 640px) {
+    .schema-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 .schema-table {
