@@ -209,3 +209,26 @@ __marimo__/
 # Generated audio files
 test_handoff.wav
 .DS_Store
+
+# Development/archive files (kept in dev-archive branch)
+cascadeui/
+.agent/
+.claude/
+website/app/
+website/index.html.bak
+*_SIMPLE.md
+*_ANALYSIS.md
+*_COMPLETE.md
+*_FINAL.md
+*_GUIDE.md (except core docs)
+*_HANDOFF.md
+*_INSTRUCTIONS.md
+*_CHANGES.md
+*_STATUS.md
+*_REPORT.md
+*_VERIFICATION.md
+backend.log
+out.json
+test_*.py (root level)
+test_*.m4a
+test_*.wav
