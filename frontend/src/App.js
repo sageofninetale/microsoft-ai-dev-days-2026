@@ -69,7 +69,7 @@ function App() {
         setMicPermission('denied');
         return;
       }
-      
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       stream.getTracks().forEach(track => track.stop()); // Stop immediately after checking
       setMicPermission('granted');
@@ -482,7 +482,7 @@ function App() {
   };
 
   // ===== HELPER FUNCTIONS =====
-  
+
   // Format timestamp to clinical time (HH:MM in 24-hour format)
   const formatClinicalTime = (timestamp) => {
     const date = new Date(timestamp);
@@ -576,8 +576,8 @@ function App() {
       {/* ===== BACK TO WEBSITE BUTTON ===== */}
       {!draft && !shiftId && (
         <div className="fixed top-4 right-4 z-40 mr-64">
-          <a 
-            href="/" 
+          <a
+            href="../index.html"
             className="bg-white border border-slate-200 px-4 py-2 rounded-full shadow-md flex items-center gap-2 hover:bg-slate-50 transition-colors text-slate-700 font-semibold text-sm"
           >
             <span className="material-icons-outlined text-slate-600 text-lg">arrow_back</span>

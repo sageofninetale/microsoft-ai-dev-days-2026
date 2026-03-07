@@ -95,9 +95,11 @@ python test_full_workflow.py              # End-to-end via API calls
 ### Python style
 - **Type hints mandatory**: `from __future__ import annotations` in all files
 - **Dataclasses with slots**: `@dataclass(slots=True)` for performance (all models in `intake_agent.py`, `verification_agent.py`, `protocol_agent.py`, `coordinator_agent.py`)
+- **Enums for constants**: Use `str, Enum` pattern (see `models.py`: `ShiftType`, `UpdateType`, `DraftStatus`)
 - **Custom exceptions**: Agent-specific errors (`IntakeAgentError`, `VerificationAgentError`, etc.) → HTTP 400
 - **Import style**: Absolute imports `from backend.` when running from repo root
 - **Async patterns**: Agent methods use `async def` with `asyncio.gather()` for parallel LLM calls (see `DraftGenerator._generate_handoff_summary_async()`)
+- **Validation in `__post_init__`**: Dataclasses validate inputs immediately after initialization (see `NurseShift.__post_init__()`)
 
 ### Agent initialization pattern
 All agents are initialized as **module-level singletons** in `api.py` to reuse Azure OpenAI clients:
@@ -112,6 +114,8 @@ def get_update_agent() -> UpdateAgent:
     return update_agent
 ```
 This prevents reinitializing OpenAI clients on every request. FastAPI lifespan events (`@asynccontextmanager`) handle startup/shutdown logging.
+
+**CRITICAL**: Never instantiate agents directly in route handlers. Always use the getter functions (`get_update_agent()`, `get_draft_generator()`) to ensure singleton pattern.
 
 ### Clinical confidence scoring (CRITICAL)
 The `IntakeAgent` applies **strict clinical safety standards** to assess handoff quality. Confidence scores are **NOT percentages** - they're clinical risk assessments:
@@ -155,7 +159,8 @@ raise IntakeAgentError("Missing patient_name")
 - **Deployment**: `gpt-5-mini` (env: `AZURE_OPENAI_DEPLOYMENT`)
 - **JSON mode**: All agents use `response_format={"type": "json_object"}` for structured extraction
 - **System prompts**: Clinical context-aware (see agent `_extract_*` methods)
-- **Parallel calls**: `DraftGenerator` uses `asyncio.gather()` to generate timeline, clinical status, and narrative simultaneously (3x speedup)
+- **Parallel calls**: `DraftGenerator` uses `asyncio.gather()` to generate timeline, clinical status, and narrative simultaneously (55% speedup: 48s → 22s, see `PARALLEL_OPTIMIZATION_COMPLETE.md`)
+- **Event loop handling**: Sync wrappers use `nest_asyncio` for FastAPI compatibility + fallback to new event loop creation
 
 ### Azure Speech
 - **Audio flow**: WebM (browser) → Base64 → Backend → WAV (ffmpeg) → Azure Speech API → Text
@@ -177,6 +182,14 @@ raise IntakeAgentError("Missing patient_name")
   - `POST /api/patient/{id}/update`: Process update (UpdateAgent) → returns verification status
   - `POST /api/patient/{id}/draft`: Generate handoff (DraftGenerator) → returns color-coded summary
   - `POST /api/handoff/intake`: Full multi-agent workflow (CoordinatorAgent) → returns risk scores
+
+### React frontend patterns
+- **Audio recording**: MediaRecorder API captures WebM → converts to Base64 → sends to backend
+- **State management**: useState hooks for shift tracking, updates list, draft display
+- **Audio workflow**: Record → Transcribe (Azure Speech) → Edit/Confirm → Submit (UpdateAgent) → Save to DB
+- **Microphone permissions**: Explicit permission check on mount with helpful error messages
+- **Auto-dismiss toasts**: Helper functions `showToast()` and `showError()` for user feedback
+- **Clipboard integration**: `copyToClipboard()` for narrative summaries
 
 ---
 
@@ -214,3 +227,31 @@ raise IntakeAgentError("Missing patient_name")
 3. Run backend server: `cd backend && python main.py`
 4. Run test: `python test_feature.py` (or `python backend/test_feature.py` for unit tests)
 5. Check `test_full_workflow.py` for E2E test patterns
+
+---
+
+## Troubleshooting common issues
+
+### "ModuleNotFoundError: No module named 'backend'"
+- **Cause**: Running scripts from wrong directory or missing `PYTHONPATH`
+- **Fix**: Always run from repo root with `python backend/test_*.py` or `python test_*.py`
+
+### "Supabase client not initialized"
+- **Cause**: Missing `.env` file or incorrect `SUPABASE_URL`/`SUPABASE_KEY`
+- **Fix**: Check `.env` file exists in repo root with valid credentials
+
+### Audio transcription fails
+- **Cause**: Missing `ffmpeg` for WebM → WAV conversion
+- **Fix**: Install ffmpeg: `brew install ffmpeg` (macOS) or check `test_speech.py` for fallback to pydub
+
+### Agent returns empty/incorrect data
+- **Cause**: Azure OpenAI JSON mode parsing failures or prompt issues
+- **Fix**: Check agent `_extract_*` methods for system prompt structure, ensure `response_format={"type": "json_object"}`
+
+### Patient ordering appears random in UI
+- **Cause**: Supabase UUID ordering instead of patient_id
+- **Fix**: Add `.order("patient_id")` to ALL Supabase queries fetching multiple patients (see `ORDERING_FIX_GUIDE.md`)
+
+### Draft generation takes 45+ seconds
+- **Cause**: Sequential API calls instead of parallel
+- **Fix**: Verify `DraftGenerator` uses `_generate_handoff_summary_async()` with `asyncio.gather()` (should be 22s)

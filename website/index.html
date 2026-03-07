@@ -47,7 +47,9 @@
             <p class="hero-eyebrow">Powered by Azure AI</p>
             <div class="hackathon-badge">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                    <polygon
+                        points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2">
+                    </polygon>
                 </svg>
                 Built for Microsoft AI Dev Days 2026
             </div>
@@ -414,39 +416,73 @@
         </div>
     </section>
 
-
     <!-- ============ FOOTER ============ -->
     <footer class="footer">
         <div class="container">
-            <div class="footer-grid">
-                <div class="footer-col">
-                    <h4>CascadeAI</h4>
-                    <a href="#">Product</a>
-                    <a href="#outcomes">Why CascadeAI</a>
-                    <a href="/app/index.html">Try now</a>
+            <!-- Navigation flow above massive text -->
+            <div class="footer-nav">
+                <div class="footer-nav-tagline">
+                    <h3>Experience the future<br>of clinical handoffs</h3>
                 </div>
-                <div class="footer-col">
-                    <h4>Resources</h4>
-                    <a href="#">Documentation</a>
-                    <a href="#">Data & security</a>
-                    <a href="#">Blog & news</a>
-                    <a href="#">Help center</a>
-                </div>
-                <div class="footer-col">
-                    <h4>Legal</h4>
-                    <a href="#">Terms of service</a>
-                    <a href="#">Privacy policy</a>
-                    <a href="#">HIPAA compliance</a>
-                    <a href="#">BAA agreement</a>
+                <div class="footer-nav-links">
+                    <div class="footer-nav-col">
+                        <a href="#mission">Mission</a>
+                        <a href="#why-cascadeai">Why CascadeAI</a>
+                        <a href="#agents">Our Agents</a>
+                        <a href="#how-it-works">How It Works</a>
+                    </div>
+                    <div class="footer-nav-col">
+                        <a href="/app/index.html">Try Now</a>
+                        <a href="architecture.html">Architecture</a>
+                    </div>
                 </div>
             </div>
+
+            <!-- Massive Typography -->
+            <div class="footer-massive">
+                CascadeAI
+            </div>
+
+            <!-- Bottom: Credits & Legal -->
             <div class="footer-bottom">
-                <span>© 2026 CascadeAI. All rights reserved.</span>
+                <div class="footer-bottom-left">
+                    <span>&copy; 2026 CascadeAI. All rights reserved.</span>
+                </div>
+
+                <div class="footer-bottom-center">
+                    <svg viewBox="-21 0 140 20" width="200" height="21" class="inline-block align-baseline"
+                        style="transform: translateX(-15px); margin-top: 8px;" aria-label="Designed by Äryan">
+                        <defs>
+                            <pattern id="wave" x="0" y="3" width="120" height="20" patternUnits="userSpaceOnUse">
+                                <path id="wavePath"
+                                    d="M-40 9 Q-30 7 -20 9 T0 9 T20 9 T40 9 T60 9 T80 9 T100 9 T120 9 V20 H-40z"
+                                    fill="#111827">
+                                    <animateTransform attributeName="transform" dur="1.5s" type="translate" from="0,0"
+                                        to="40,0" repeatCount="indefinite"></animateTransform>
+                                </path>
+                            </pattern>
+                            <linearGradient id="gradientWave">
+                                <stop offset="0%" stop-color="#111827"></stop>
+                                <stop offset="100%" stop-color="#6b7280"></stop>
+                            </linearGradient>
+                        </defs>
+                        <text x="0" y="15" fill="url(#wave)" fill-opacity="1.0" font-size="14"
+                            font-family="system-ui, -apple-system, sans-serif" font-weight="400">Designed by
+                            Äryan</text>
+                        <text x="0" y="15" fill="url(#gradientWave)" fill-opacity="0.6" font-size="14"
+                            font-family="system-ui, -apple-system, sans-serif" font-weight="400">Designed by
+                            Äryan</text>
+                    </svg>
+                </div>
+
+                <div class="footer-bottom-right">
+                    <span>Built for Microsoft AI Dev Days 2026</span>
+                </div>
             </div>
         </div>
     </footer>
 
     <script src="script.js"></script>
-
+</body>
 
 </html>

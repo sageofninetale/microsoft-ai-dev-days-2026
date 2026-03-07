@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Architecture | CascadeAI</title>
+    <meta name="description"
+        content="Technical Architecture of CascadeAI - 6-Agent Clinical Handoff Intelligence System">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles.css?v=5">
+    <link rel="stylesheet" href="architecture.css?v=1">
+</head>
+
+<body class="arch-body">
+
+    <!-- ============ NAVIGATION ============ -->
+    <nav id="nav" class="arch-nav">
+        <div class="nav-inner">
+            <a href="index.html" class="nav-logo">
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                    <circle cx="16" cy="16" r="14" fill="#3D4F2F" />
+                    <path d="M16 8 C16 8 10 14 10 18 C10 21.3 12.7 24 16 24 C19.3 24 22 21.3 22 18 C22 14 16 8 16 8Z"
+                        fill="white" />
+                </svg>
+                <span>CascadeAI</span>
+            </a>
+            <div class="nav-links" id="navLinks">
+                <a href="index.html#mission" class="nav-link">Mission</a>
+                <a href="index.html#outcomes" class="nav-link">Why CascadeAI</a>
+                <a href="index.html#agents" class="nav-link">Our Agents</a>
+                <a href="#" class="nav-link active">Architecture</a>
+            </div>
+            <a href="/app/index.html" class="nav-cta magnetic">Try now<span class="arrow">→</span></a>
+            <button class="hamburger" id="hamburger" aria-label="Menu">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- ============ HERO ARCHITECTURE ============ -->
+    <header class="arch-hero">
+        <div class="container">
+            <div class="arch-hero-content">
+                <p class="arch-eyebrow">Enterprise Grade</p>
+                <h1 class="arch-title">The intelligence behind<br>the handoff.</h1>
+                <p class="arch-subtitle">CascadeAI orchestrates six specialized AI agents native to Microsoft Azure,
+                    combining real-time speech processing, strict clinical protocol matching, and EMR data
+                    synchronization in sub-30 seconds.</p>
+            </div>
+        </div>
+    </header>
+
+    <!-- ============ SECTION 1: HIGH LEVEL SYSTEM DIAGRAM ============ -->
+    <section class="arch-section bg-gradient-dark">
+        <div class="container">
+            <div class="arch-section-header">
+                <h2>System Architecture</h2>
+                <p>A unified data flow from clinical frontend to secure Azure AI orchestration.</p>
+            </div>
+
+            <!-- Supabase-Inspired Diagram using CSS Grid -->
+            <div class="system-diagram">
+                <!-- Layer 1: Client -->
+                <div class="diagram-layer">
+                    <div class="diagram-box client-box">
+                        <div class="box-icon">🖥️</div>
+                        <h3>Frontend Client</h3>
+                        <p>React SPA + WebRTC Audio</p>
+                        <div class="tech-tag">Azure Static Web Apps</div>
+                    </div>
+                </div>
+
+                <!-- Connectors -->
+                <div class="diagram-connector">
+                    <div class="arrow-down"></div>
+                </div>
+
+                <!-- Layer 2: API Gateway -->
+                <div class="diagram-layer">
+                    <div class="diagram-box api-box">
+                        <div class="box-icon">⚡</div>
+                        <h3>FastAPI Gateway</h3>
+                        <p>Stateless Python Orchestrator</p>
+                        <div class="tech-tag">Azure App Service</div>
+                    </div>
+                </div>
+
+                <!-- Connectors Branching -->
+                <div class="diagram-branch-connectors">
+                    <div class="branch-line"></div>
+                    <div class="arrow-down"></div>
+                    <div class="arrow-down"></div>
+                    <div class="arrow-down"></div>
+                </div>
+
+                <!-- Layer 3: Services (The 6 Agents + Speech + DB) -->
+                <div class="diagram-layer grid-3">
+                    <div class="diagram-box ai-service-box">
+                        <div class="box-header">
+                            <span class="status-dot"></span>
+                            Azure Speech
+                        </div>
+                        <p>Real-time WebM to Text<br>HIPAA-compliant transcription</p>
+                    </div>
+
+                    <div class="diagram-box core-engine-box">
+                        <div class="box-header glow">
+                            <span>🧠</span>
+                            6-Agent Engine
+                        </div>
+                        <div class="engine-micro-grid">
+                            <span>Intake</span>
+                            <span>Update</span>
+                            <span>Verify</span>
+                            <span>Protocol</span>
+                            <span>Draft</span>
+                            <span>Coord</span>
+                        </div>
+                        <div class="tech-tag fluid">Azure OpenAI (gpt-4o)</div>
+                    </div>
+
+                    <div class="diagram-box db-box">
+                        <div class="box-header">
+                            <span>🗄️</span>
+                            PostgreSQL EMR
+                        </div>
+                        <p>Patient master records<br>Row-Level Security</p>
+                        <div class="tech-tag">Supabase</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============ SECTION 2: TECH STACK VISUALIZATION ============ -->
+    <section class="arch-section">
+        <div class="container">
+            <div class="arch-section-header">
+                <h2>The Stack</h2>
+                <p>Built on modern, scalable primitives for maximum reliability.</p>
+            </div>
+
+            <!-- Vercel-Inspired Grid -->
+            <div class="stack-grid">
+                <div class="stack-card">
+                    <div class="stack-icon">⚡</div>
+                    <h3>Frontend</h3>
+                    <p>React + MediaRecorder API</p>
+                    <div class="stack-detail">Real-time Base64 audio encoding in the browser.</div>
+                </div>
+                <div class="stack-card">
+                    <div class="stack-icon">⚙️</div>
+                    <h3>Backend</h3>
+                    <p>Python FastAPI</p>
+                    <div class="stack-detail">High-performance ASGI server orchestrating 6 agents.</div>
+                </div>
+                <div class="stack-card glow-card">
+                    <div class="stack-icon">🧠</div>
+                    <h3>AI & ML</h3>
+                    <p>Azure OpenAI & Speech</p>
+                    <div class="stack-detail">gpt-4o reasoning combined with HIPAA-compliant transcription.</div>
+                </div>
+                <div class="stack-card">
+                    <div class="stack-icon">🗄️</div>
+                    <h3>Database</h3>
+                    <p>Supabase (PostgreSQL)</p>
+                    <div class="stack-detail">Structured EMR data with strict Row-Level Security.</div>
+                </div>
+                <div class="stack-card">
+                    <div class="stack-icon">☁️</div>
+                    <h3>Deployment</h3>
+                    <p>Azure Cloud Native</p>
+                    <div class="stack-detail">Static Web Apps (UI) + App Service (API).</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============ SECTION 3: MULTI-AGENT WORKFLOW ============ -->
+    <section class="arch-section bg-gradient-dark">
+        <div class="container">
+            <div class="arch-section-header">
+                <h2>Multi-Agent Workflow</h2>
+                <p>A deterministic state machine orchestrating non-deterministic models.</p>
+            </div>
+
+            <!-- Temporal-Inspired Flow Chart -->
+            <div class="workflow-diagram">
+                <div class="wf-node start-node">
+                    Audio / Text Input
+                </div>
+
+                <div class="wf-arrow">→</div>
+
+                <div class="wf-node">
+                    <div class="wf-label">IntakeAgent</div>
+                    Transcription & Extraction
+                </div>
+
+                <div class="wf-arrow">→</div>
+
+                <div class="wf-node">
+                    <div class="wf-label">UpdateAgent</div>
+                    Classification & Formatting
+                </div>
+
+                <div class="wf-arrow">→</div>
+
+                <!-- Parallel Verification block -->
+                <div class="wf-parallel-group">
+                    <div class="wf-node">
+                        <div class="wf-label">VerificationAgent</div>
+                        EMR Cross-Reference
+                    </div>
+                    <div class="wf-node">
+                        <div class="wf-label">ProtocolAgent</div>
+                        Clinical Compliance
+                    </div>
+                </div>
+
+                <div class="wf-arrow">→</div>
+
+                <div class="wf-node">
+                    <div class="wf-label">DraftGenerator</div>
+                    Narrative & Timeline
+                </div>
+
+                <div class="wf-arrow">→</div>
+
+                <div class="wf-node end-node glow-node">
+                    <div class="wf-label">CoordinatorAgent</div>
+                    Risk-Weighted Output
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============ SECTION 4: API ARCHITECTURE ============ -->
+    <section class="arch-section">
+        <div class="container">
+            <div class="arch-section-header">
+                <h2>API Architecture</h2>
+                <p>Simple, predictable REST endpoints for the clinical frontend.</p>
+            </div>
+
+            <!-- Stripe-Inspired Split View -->
+            <div class="api-split">
+                <div class="api-docs">
+                    <div class="api-endpoint">
+                        <span class="method post">POST</span>
+                        <span class="path">/api/handoff/intake</span>
+                    </div>
+                    <p>Expects a Base64-encoded WebM audio payload containing the Nurse's spoken handoff notes.
+                        Authenticated via Azure AD App Registration tokens.</p>
+
+                    <div class="api-endpoint mt-4">
+                        <span class="method post">POST</span>
+                        <span class="path">/api/shift/draft</span>
+                    </div>
+                    <p>Forces the generation of the final structured JSON draft and triggers the webhook to write to the
+                        Supabase Postgres instance.</p>
+                </div>
+
+                <div class="api-code-window">
+                    <div class="window-headers">
+                        <span></span><span></span><span></span>
+                    </div>
+                    <div class="code-container">
+                        <pre><code><span class="req-title">Request Payload</span>
+{
+  <span class="code-key">"nurse_id"</span>: <span class="code-str">"usr_98a71b"</span>,
+  <span class="code-key">"patient_mrn"</span>: <span class="code-str">"PT-44810"</span>,
+  <span class="code-key">"audio_data"</span>: <span class="code-str">"GkXfowEAAAAAAAAfQoaBAUL3gQFC8..."</span>,
+  <span class="code-key">"mime_type"</span>: <span class="code-str">"audio/webm"</span>
+}
+
+<span class="res-title">Response</span>
+{
+  <span class="code-key">"status"</span>: <span class="code-str">"processing"</span>,
+  <span class="code-key">"job_id"</span>: <span class="code-str">"handoff_3a91b"</span>,
+  <span class="code-key">"estimated_latency_ms"</span>: <span class="code-num">28500</span>
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============ SECTION 5: DATA PIPELINE ============ -->
+    <section class="arch-section bg-gradient-dark">
+        <div class="container">
+            <div class="arch-section-header">
+                <h2>Real-Time Data Pipeline</h2>
+                <p>From spoken word to structured EMR insertion in less than 30 seconds.</p>
+            </div>
+
+            <!-- PostHog-Inspired Pipeline Tracker -->
+            <div class="pipeline-track">
+                <div class="pine-step">
+                    <div class="pine-icon">🎤</div>
+                    <div class="pine-text">Nurse Audio</div>
+                </div>
+                <div class="pine-line"></div>
+                <div class="pine-step">
+                    <div class="pine-icon">📡</div>
+                    <div class="pine-text">Base64 Encode</div>
+                </div>
+                <div class="pine-line"></div>
+                <div class="pine-step">
+                    <div class="pine-icon">🎵</div>
+                    <div class="pine-text">ffmpeg (WAV)</div>
+                </div>
+                <div class="pine-line"></div>
+                <div class="pine-step">
+                    <div class="pine-icon">📝</div>
+                    <div class="pine-text">Azure Speech</div>
+                </div>
+                <div class="pine-line"></div>
+                <div class="pine-step">
+                    <div class="pine-icon">🧠</div>
+                    <div class="pine-text">OpenAI JSON</div>
+                </div>
+                <div class="pine-line"></div>
+                <div class="pine-step pine-final">
+                    <div class="pine-icon">🗄️</div>
+                    <div class="pine-text">Row-Level DB</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============ SECTION 6: DATABASE SCHEMA ============ -->
+    <section class="arch-section">
+        <div class="container">
+            <div class="arch-section-header">
+                <h2>Database Substrate</h2>
+                <p>PostgreSQL schema engineered for EMR integrity and fast vector retrieval.</p>
+            </div>
+
+            <!-- Supabase-Inspired Schema Tables -->
+            <div class="schema-grid">
+
+                <!-- Table 1 -->
+                <div class="schema-table">
+                    <div class="schema-header">
+                        <span class="table-icon">📇</span>
+                        <span class="table-name">public.patients</span>
+                    </div>
+                    <div class="schema-rows">
+                        <div class="schema-row">
+                            <span class="col-name">id</span>
+                            <span class="col-type">uuid <span class="pk">PK</span></span>
+                        </div>
+                        <div class="schema-row">
+                            <span class="col-name">created_at</span>
+                            <span class="col-type">timestamptz</span>
+                        </div>
+                        <div class="schema-row">
+                            <span class="col-name">mrn</span>
+                            <span class="col-type">text <span class="unique">UNIQUE</span></span>
+                        </div>
+                        <div class="schema-row">
+                            <span class="col-name">baseline_status</span>
+                            <span class="col-type">jsonb</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Table 2 -->
+                <div class="schema-table">
+                    <div class="schema-header">
+                        <span class="table-icon">📋</span>
+                        <span class="table-name">public.patient_updates</span>
+                    </div>
+                    <div class="schema-rows">
+                        <div class="schema-row">
+                            <span class="col-name">id</span>
+                            <span class="col-type">uuid <span class="pk">PK</span></span>
+                        </div>
+                        <div class="schema-row">
+                            <span class="col-name">patient_id</span>
+                            <span class="col-type">uuid <span class="fk">FK</span></span>
+                        </div>
+                        <div class="schema-row">
+                            <span class="col-name">nurse_id</span>
+                            <span class="col-type">uuid <span class="fk">FK</span></span>
+                        </div>
+                        <div class="schema-row">
+                            <span class="col-name">clinical_notes</span>
+                            <span class="col-type">text</span>
+                        </div>
+                        <div class="schema-row">
+                            <span class="col-name">embedding</span>
+                            <span class="col-type">vector(1536)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Table 3 -->
+                <div class="schema-table">
+                    <div class="schema-header">
+                        <span class="table-icon">📄</span>
+                        <span class="table-name">public.draft_handoffs</span>
+                    </div>
+                    <div class="schema-rows">
+                        <div class="schema-row">
+                            <span class="col-name">id</span>
+                            <span class="col-type">uuid <span class="pk">PK</span></span>
+                        </div>
+                        <div class="schema-row">
+                            <span class="col-name">shift_id</span>
+                            <span class="col-type">uuid <span class="fk">FK</span></span>
+                        </div>
+                        <div class="schema-row">
+                            <span class="col-name">status</span>
+                            <span class="col-type">handoff_status</span>
+                        </div>
+                        <div class="schema-row">
+                            <span class="col-name">structured_data</span>
+                            <span class="col-type">jsonb</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer linking back to main -->
+    <footer
+        style="text-align: center; padding: 40px 0 80px; border-top: 1px solid var(--arch-border); margin-top: 40px;">
+        <a href="index.html" class="nav-link"
+            style="color: var(--arch-text-secondary); text-decoration: none; font-size: 14px; transition: color 0.2s;">
+            ← Back to CascadeAI
+        </a>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
