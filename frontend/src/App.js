@@ -570,7 +570,7 @@ function App() {
       {!draft && !shiftId && (
         <div className="fixed top-4 right-4 z-40 mr-64">
           <a
-            href="/website/"
+            href="/"
             className="bg-white border border-slate-200 px-4 py-2 rounded-full shadow-md flex items-center gap-2 hover:bg-slate-50 transition-colors text-slate-700 font-semibold text-sm"
           >
             <span className="material-icons-outlined text-slate-600 text-lg">arrow_back</span>
