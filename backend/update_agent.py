@@ -6,6 +6,7 @@ Transcribes audio, extracts structured data, verifies against EMR, and saves to 
 from __future__ import annotations
 import os
 import uuid
+import concurrent.futures
 from datetime import datetime
 from typing import Optional, Dict, Any
 from dotenv import load_dotenv
@@ -94,7 +95,13 @@ class UpdateAgent:
             )
             
             print(f"🎤 Transcribing audio: {audio_path}")
-            result = speech_recognizer.recognize_once()
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(speech_recognizer.recognize_once)
+                try:
+                    result = future.result(timeout=10)
+                except concurrent.futures.TimeoutError:
+                    print("❌ Speech recognition timed out after 10 seconds")
+                    return None
             
             if result.reason == speechsdk.ResultReason.RecognizedSpeech:
                 print(f"✅ Transcription complete: {len(result.text)} characters")

@@ -127,15 +127,17 @@ SEVERITY LEVELS:
 🔵 BLUE (INFO): Comfort measures, family updates, routine care
 ⚪ GRAY (ADMIN): Shift changes, room transfers, general observations
 
-Return JSON array:
-[
-  {
-    "time": "HH:MM AM/PM",
-    "event": "Brief description",
-    "severity": "RED|ORANGE|YELLOW|GREEN|BLUE|GRAY",
-    "icon": "🔴|🟠|🟡|🟢|🔵|⚪"
-  }
-]"""
+Return a JSON object with a single key "timeline" whose value is the array:
+{
+  "timeline": [
+    {
+      "time": "HH:MM AM/PM",
+      "event": "Brief description",
+      "severity": "RED|ORANGE|YELLOW|GREEN|BLUE|GRAY",
+      "icon": "🔴|🟠|🟡|🟢|🔵|⚪"
+    }
+  ]
+}"""
 
                 user_prompt = f"""Patient: {patient_data.get('name', 'Unknown')} (Age {patient_data.get('age', '?')})
 Allergies: {', '.join(patient_data.get('allergies', [])) if patient_data.get('allergies') else 'None'}
@@ -158,7 +160,10 @@ Generate timeline with severity classification."""
                 print(f"   📅 Timeline call: {elapsed:.2f}s")
                 
                 result = json.loads(response.choices[0].message.content)
-                return result.get("timeline", [])
+                timeline = result.get("timeline")
+                if timeline is None:
+                    timeline = next((v for v in result.values() if isinstance(v, list)), [])
+                return timeline
                 
             except Exception as e:
                 print(f"⚠️ Timeline generation error: {e}")
@@ -256,8 +261,8 @@ Return JSON:
 }"""
 
             user_prompt = f"""Patient: {patient_data.get('name', 'Unknown')}
-Age: {patient_data.get('age', '?')}
-Room: {patient_data.get('room', 'Unknown')}
+Age: {patient_data.get('age') or 'Unknown'}
+Room: {patient_data.get('room_number') or patient_data.get('room') or 'Unknown'}
 Allergies: {', '.join(emr_allergies) if emr_allergies else 'None'}
 EMR Medications: {', '.join([str(m) for m in emr_medications]) if emr_medications else 'None'}
 
@@ -327,7 +332,7 @@ Analyze current clinical status, medications, vitals, safety alerts, and pending
             system_prompt = """You are a clinical documentation specialist. Generate a professional narrative handoff paragraph (150-250 words).
 
 STRUCTURE:
-1. Opening: "PatientName (PatientID, Room XXX) had a [stable/eventful/concerning] shift..."
+1. Opening: "PatientName (PatientID, Room XXX, Age XX) had a [stable/eventful/concerning] shift..."
 2. Vital signs: "with vital signs [within normal limits / showing X] (HR X, BP X/X)."
 3. Key events: "At HH:MM, [event]. "
 4. Medication changes: Mention new/discontinued meds and EMR status
@@ -337,13 +342,14 @@ STRUCTURE:
 
 TONE: Conversational handoff style, professional, readable
 
-EXAMPLE: "Willie Bennett (P056, Room 405) had a stable shift with vital signs remaining within normal limits (HR 90, BP 120/90). At 02:00, the patient received paracetamol and aspirin for pain management, though these medications are not currently documented in the EMR and require reconciliation. Blood work is pending, and cardiothoracic surgery has been consulted for angiogram planning. The patient remains comfortable with no acute changes. Critical action required: Reconcile aspirin administration with medication record and assess bleeding risk given concurrent Warfarin therapy."
+EXAMPLE: "Willie Bennett (P056, Room 405, Age 72) had a stable shift with vital signs remaining within normal limits (HR 90, BP 120/90). At 02:00, the patient received paracetamol and aspirin for pain management, though these medications are not currently documented in the EMR and require reconciliation. Blood work is pending, and cardiothoracic surgery has been consulted for angiogram planning. The patient remains comfortable with no acute changes. Critical action required: Reconcile aspirin administration with medication record and assess bleeding risk given concurrent Warfarin therapy."
 
 Return JSON: {"narrative_summary": "Your 150-250 word paragraph here"}"""
 
             user_prompt = f"""Patient: {patient_data.get('name', 'Unknown Patient')}
-Room: {patient_data.get('room', 'Unknown')}
-Age: {patient_data.get('age', 'Unknown')}
+Patient ID: {patient_data.get('patient_id', 'Unknown')}
+Room: {patient_data.get('room_number') or patient_data.get('room') or 'Unknown'}
+Age: {patient_data.get('age') or 'Unknown'}
 Allergies: {', '.join(emr_allergies) if emr_allergies else 'None'}
 EMR Medications: {', '.join([str(m) for m in emr_medications]) if emr_medications else 'None'}
 
@@ -442,40 +448,7 @@ Generate 150-250 word narrative handoff summary."""
                 "narrative_summary": f"Patient {patient_data.get('name', 'Unknown')} had {update_count} updates this shift. See timeline for details."
             }
     
-    def _generate_handoff_summary(
-        self,
-        patient_data: dict,
-        organized_updates: Dict[str, Any],
-        update_count: int
-    ) -> Dict[str, Any]:
-        """
-        Synchronous wrapper for async handoff summary generation.
-        """
-        # Try to get existing loop, otherwise create new one
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # We're in an async context - use nest_asyncio
-                import nest_asyncio
-                nest_asyncio.apply()
-                return loop.run_until_complete(
-                    self._generate_handoff_summary_async(patient_data, organized_updates, update_count)
-                )
-            else:
-                return loop.run_until_complete(
-                    self._generate_handoff_summary_async(patient_data, organized_updates, update_count)
-                )
-        except RuntimeError:
-            # No event loop, create a new one
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            result = loop.run_until_complete(
-                self._generate_handoff_summary_async(patient_data, organized_updates, update_count)
-            )
-            loop.close()
-            return result
-    
-    def generate_draft(self, patient_id: str, shift_id: str) -> Dict[str, Any]:
+    async def generate_draft(self, patient_id: str, shift_id: str) -> Dict[str, Any]:
         """
         Generate a draft handoff by compiling all updates for a patient during a shift.
         
@@ -531,7 +504,7 @@ Generate 150-250 word narrative handoff summary."""
             print(f"   • General updates: {len(organized_updates['general'])}")
             
             # Step 4: Generate AI-powered summary
-            draft_content = self._generate_handoff_summary(
+            draft_content = await self._generate_handoff_summary_async(
                 patient_data,
                 organized_updates,
                 len(updates)

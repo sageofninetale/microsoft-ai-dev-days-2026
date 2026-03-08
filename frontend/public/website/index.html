@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CascadeAI - Multi-Agent Clinical Handoff Intelligence</title>
+    <meta name="description"
+        content="CascadeAI uses 5 specialized AI agents to prevent medical errors during nurse shift handoffs. Generate verified reports in 60 seconds.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Inter:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles.css?v=4">
+</head>
+
+<body>
+
+    <!-- ============ NAVIGATION ============ -->
+    <nav id="nav">
+        <div class="nav-inner">
+            <a href="#" class="nav-logo">
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                    <circle cx="16" cy="16" r="14" fill="#4F46E5" />
+                    <path d="M16 8 C16 8 10 14 10 18 C10 21.3 12.7 24 16 24 C19.3 24 22 21.3 22 18 C22 14 16 8 16 8Z"
+                        fill="white" />
+                </svg>
+                <span>CascadeAI</span>
+            </a>
+            <div class="nav-links" id="navLinks">
+                <a href="#mission" class="nav-link">Mission</a>
+                <a href="#outcomes" class="nav-link">Why CascadeAI</a>
+                <a href="#agents" class="nav-link">Our Agents</a>
+                <a href="architecture.html" class="nav-link">Architecture</a>
+                <a href="#how-it-works" class="nav-link">How It Works</a>
+            </div>
+            <a href="/app/index.html" class="nav-cta magnetic">Try now<span class="arrow">→</span></a>
+            <button class="hamburger" id="hamburger" aria-label="Menu">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- ============ HERO — Light, centered (Tandem-style) ============ -->
+    <section id="hero" class="hero">
+        <div class="container hero-content scroll-reveal">
+            <p class="hero-eyebrow">Powered by Azure AI</p>
+            <div class="hackathon-badge">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon
+                        points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2">
+                    </polygon>
+                </svg>
+                Built for Microsoft AI Dev Days 2026
+            </div>
+            <h1 class="hero-headline">
+                Handoff reports that<br>
+                <em>write themselves</em>
+            </h1>
+            <p class="hero-sub">
+                Save hours of documentation every shift. CascadeAI uses 5 specialized agents to verify,
+                cross-check, and summarize patient handoffs so nurses can focus on care, not paperwork.
+            </p>
+            <div class="hero-ctas">
+                <a href="/app/index.html" class="btn btn-primary magnetic">Try now<span class="arrow">→</span></a>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============ STATISTICS BANNER ============ -->
+    <section class="stats-banner scroll-reveal">
+        <div class="container">
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <span class="stat-big">97%</span>
+                    <span class="stat-title">Time Saved</span>
+                    <span class="stat-detail">20 min → 60 sec</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-big">60s</span>
+                    <span class="stat-title">Average Handoff</span>
+                    <span class="stat-detail">Generation Time</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-big">5</span>
+                    <span class="stat-title">AI Agents</span>
+                    <span class="stat-detail">+ 1 Orchestrator</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-big">100%</span>
+                    <span class="stat-title">EMR Verification</span>
+                    <span class="stat-detail">Accuracy</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============ MISSION — Bold Blue Section (Kabilah-style) ============ -->
+    <section id="mission" class="mission">
+        <div class="container">
+            <div class="mission-grid scroll-reveal">
+                <div class="mission-text">
+                    <p class="section-eyebrow section-eyebrow--light">For Nurses</p>
+                    <h2 class="mission-headline">
+                        Because nurses deserve to focus<br>on patients, not paperwork.
+                    </h2>
+                    <p class="mission-body">
+                        CascadeAI automates the handoff process, so you can spend more time
+                        providing exceptional care and less time documenting it.
+                    </p>
+                    <p class="mission-body">
+                        <strong>Your AI partner in patient safety.</strong>
+                    </p>
+                    <a href="#agents" class="btn btn-mint magnetic">See how it works</a>
+                </div>
+                <div class="mission-visual">
+                    <div class="mission-stat-card">
+                        <span class="stat-number">40%</span>
+                        <span class="stat-label">of every nursing shift is spent on documentation instead of patient
+                            care. CascadeAI gives that time back.</span>
+                    </div>
+                    <div class="mission-stat-card">
+                        <span class="stat-number">80%</span>
+                        <span class="stat-label">of serious medical errors involve miscommunication during shift
+                            handoffs</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============ WHY CASCADEAI — Nurse empowerment metrics ============ -->
+    <section id="outcomes" class="outcomes">
+        <div class="container">
+            <div class="section-header scroll-reveal">
+                <p class="section-eyebrow">Why CascadeAI</p>
+                <h2 class="section-title">Give nurses their<br><em>time back</em></h2>
+                <p class="section-sub">We don't replace nurses. We remove the busywork so they can do what they do
+                    best: care for patients.</p>
+            </div>
+            <div class="outcomes-grid">
+                <div class="outcome-card scroll-reveal">
+                    <div class="outcome-icon">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#3D4F2F" stroke-width="2">
+                            <circle cx="12" cy="12" r="10" />
+                            <polyline points="12 6 12 12 16 14" />
+                        </svg>
+                    </div>
+                    <span class="outcome-num">01</span>
+                    <h3 class="outcome-title">60 seconds</h3>
+                    <p class="outcome-desc">From verbal handoff to a complete, structured report. What used to take 45
+                        minutes of manual writing. CascadeAI generates, verifies, and structures in half a minute.</p>
+                    <span class="outcome-metric">45 min → 60 sec</span>
+                </div>
+                <div class="outcome-card scroll-reveal">
+                    <div class="outcome-icon">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#3D4F2F" stroke-width="2">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                            <circle cx="9" cy="7" r="4" />
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                        </svg>
+                    </div>
+                    <span class="outcome-num">02</span>
+                    <h3 class="outcome-title">5 agents, 1 safety net</h3>
+                    <p class="outcome-desc">Every handoff is cross-checked by 5 specialized AI agents + 1 orchestrator
+                        working in parallel: intake, verification, protocol, update, and draft generation. Nothing gets
+                        missed.
+                    </p>
+                    <span class="outcome-metric">Multi-agent architecture</span>
+                </div>
+                <div class="outcome-card scroll-reveal">
+                    <div class="outcome-icon">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#3D4F2F" stroke-width="2">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                        </svg>
+                    </div>
+                    <span class="outcome-num">03</span>
+                    <h3 class="outcome-title">Every allergy. Every med.</h3>
+                    <p class="outcome-desc">CascadeAI verifies every data point against live EMR records in real-time:
+                        allergies, medications, vitals, protocols. So nothing falls through the cracks when it matters
+                        most.</p>
+                    <span class="outcome-metric">Live EMR verification</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+
+
+    <!-- ============ WORKFLOW ARCHITECTURE DIAGRAM ============ -->
+    <section id="agents" class="workflow">
+        <div class="container">
+            <div class="workflow-layout scroll-reveal">
+                <!-- Left: Text -->
+                <div class="workflow-text">
+                    <p class="section-eyebrow section-eyebrow--light">Multi-agent architecture</p>
+                    <h2 class="workflow-title">5 specialized agents. <em>One pipeline.</em></h2>
+                    <p class="workflow-body">Every handoff flows through a verified pipeline - from your voice to a
+                        complete, safety-checked report in 60 seconds.</p>
+                    <p class="workflow-body">Each agent is a specialist, optimized for its domain. The
+                        CoordinatorAgent orchestrates them all, calculating weighted risk scores so nothing gets missed.
+                    </p>
+                    <a href="#how-it-works" class="btn btn-mint magnetic">See how it works <span
+                            class="arrow">&rarr;</span></a>
+                </div>
+
+                <!-- Right: Diagram -->
+                <div class="workflow-diagram">
+
+                    <!-- 1. Nurse Audio Input -->
+                    <div class="wf-node wf-node--input">
+                        <span class="wf-role-badge">INPUT</span>
+                        <div class="wf-node-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                            </svg>
+                        </div>
+                        <span class="wf-node-name">Nurse Audio Input</span>
+                        <span class="wf-node-sub">verbal handoff</span>
+                    </div>
+
+                    <div class="wf-connector"></div>
+
+                    <!-- 2. IntakeAgent -->
+                    <div class="wf-node wf-node--agent wf-node--blue">
+                        <span class="wf-role-badge">AGENT</span>
+                        <div class="wf-node-dot" style="background:var(--agent-blue);"></div>
+                        <span class="wf-node-name">IntakeAgent</span>
+                        <span class="wf-node-sub">Speech-to-Text Transcription</span>
+                    </div>
+
+                    <div class="wf-connector"></div>
+
+                    <!-- 3. UpdateAgent -->
+                    <div class="wf-node wf-node--agent wf-node--red">
+                        <span class="wf-role-badge">AGENT</span>
+                        <div class="wf-node-dot" style="background:var(--agent-red);"></div>
+                        <span class="wf-node-name">UpdateAgent</span>
+                        <span class="wf-node-sub">Extract Structured Data</span>
+                    </div>
+
+                    <div class="wf-connector"></div>
+
+                    <!-- 4. CoordinatorAgent -->
+                    <div class="wf-node wf-node--coordinator">
+                        <span class="wf-role-badge wf-role-badge--orchestrator">ORCHESTRATOR</span>
+                        <div class="wf-node-dot" style="background:var(--cta-mint);"></div>
+                        <span class="wf-node-name">CoordinatorAgent</span>
+                        <span class="wf-node-sub">Orchestrator &middot; Risk Scoring</span>
+                    </div>
+
+                    <div class="wf-connector wf-connector--split"></div>
+
+                    <!-- Parallel Execution Zone -->
+                    <div class="wf-parallel-group">
+                        <div class="wf-parallel-label">
+                            <span>Parallel Execution</span>
+                        </div>
+                        <div class="wf-parallel-nodes">
+                            <!-- 5a. VerificationAgent -->
+                            <div class="wf-node wf-node--agent wf-node--sm wf-node--green">
+                                <span class="wf-role-badge">AGENT</span>
+                                <div class="wf-node-dot" style="background:var(--agent-green);"></div>
+                                <span class="wf-node-name">VerificationAgent</span>
+                                <span class="wf-node-sub">EMR Cross-Check</span>
+                            </div>
+
+                            <!-- 5b. ProtocolAgent -->
+                            <div class="wf-node wf-node--agent wf-node--sm wf-node--amber">
+                                <span class="wf-role-badge">AGENT</span>
+                                <div class="wf-node-dot" style="background:var(--agent-amber);"></div>
+                                <span class="wf-node-name">ProtocolAgent</span>
+                                <span class="wf-node-sub">ACS &middot; Fall &middot; HTN</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="wf-connector wf-connector--merge"></div>
+
+                    <!-- 6. DraftGenerator -->
+                    <div class="wf-node wf-node--agent wf-node--purple">
+                        <span class="wf-role-badge">AGENT</span>
+                        <div class="wf-node-dot" style="background:var(--agent-purple);"></div>
+                        <span class="wf-node-name">DraftGenerator</span>
+                        <span class="wf-node-sub">150-word Color-Coded Report</span>
+                    </div>
+
+                    <div class="wf-connector"></div>
+
+                    <!-- 7. Final Handoff Report -->
+                    <div class="wf-node wf-node--output">
+                        <span class="wf-role-badge wf-role-badge--output">OUTPUT</span>
+                        <div class="wf-node-icon wf-node-icon--success">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                <polyline points="14 2 14 8 20 8" />
+                                <line x1="16" y1="13" x2="8" y2="13" />
+                                <line x1="16" y1="17" x2="8" y2="17" />
+                            </svg>
+                        </div>
+                        <span class="wf-node-name">Final Handoff Report</span>
+                        <span class="wf-node-badges">
+                            <span class="wf-badge wf-badge--critical">Critical</span>
+                            <span class="wf-badge wf-badge--caution">Caution</span>
+                            <span class="wf-badge wf-badge--verified">Verified</span>
+                        </span>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </section>
+
+
+
+    <!-- ============ HOW IT WORKS — 3-step visual (Tandem-style) ============ -->
+    <section id="how-it-works" class="how-it-works">
+        <div class="container">
+            <div class="section-header scroll-reveal">
+                <p class="section-eyebrow">How it works</p>
+                <h2 class="section-title">Three steps to a safer handoff</h2>
+            </div>
+            <div class="steps-grid">
+                <div class="step-card scroll-reveal">
+                    <div class="step-visual">
+                        <div class="step-mockup step-mockup--record">
+                            <div class="mockup-bar"><span></span><span></span><span></span></div>
+                            <div class="mockup-waveform">
+                                <div class="wave-line"></div>
+                                <div class="wave-line"></div>
+                                <div class="wave-line"></div>
+                                <div class="wave-line"></div>
+                                <div class="wave-line"></div>
+                            </div>
+                            <p class="mockup-status">● Recording…</p>
+                        </div>
+                    </div>
+                    <h3 class="step-label">1. Record</h3>
+                    <p class="step-desc">Simply start your verbal handoff as you normally would. CascadeAI listens and
+                        transcribes in real-time.</p>
+                </div>
+                <div class="step-card scroll-reveal">
+                    <div class="step-visual">
+                        <div class="step-mockup step-mockup--verify">
+                            <div class="mockup-bar"><span></span><span></span><span></span></div>
+                            <div class="mockup-checks">
+                                <div class="check-item check-pass"><span class="check-icon">✓</span> Patient ID verified
+                                </div>
+                                <div class="check-item check-pass"><span class="check-icon">✓</span> Medications matched
+                                </div>
+                                <div class="check-item check-warn"><span class="check-icon">!</span> Allergy missing
+                                    from verbal</div>
+                                <div class="check-item check-pass"><span class="check-icon">✓</span> Vitals within range
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <h3 class="step-label">2. Verify</h3>
+                    <p class="step-desc">5 AI agents cross-check every detail against EMR data. Discrepancies are
+                        flagged instantly.</p>
+                </div>
+                <div class="step-card scroll-reveal">
+                    <div class="step-visual">
+                        <div class="step-mockup step-mockup--review">
+                            <div class="mockup-bar"><span></span><span></span><span></span></div>
+                            <div class="mockup-report">
+                                <div class="report-header">Handoff Report</div>
+                                <div class="report-badge report-badge--critical">CRITICAL</div>
+                                <div class="report-line"></div>
+                                <div class="report-badge report-badge--verified">VERIFIED</div>
+                                <div class="report-line"></div>
+                                <div class="report-line report-line--short"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <h3 class="step-label">3. Review</h3>
+                    <p class="step-desc">Review the complete, prioritized report. Send to the incoming nurse with one
+                        click. Then get back to your day.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="security" class="security">
+        <div class="container">
+            <div class="section-header scroll-reveal">
+                <p class="section-eyebrow section-eyebrow--light">🔒 Security</p>
+                <h2 class="section-title section-title--white">Enterprise-Grade Security<br>& Compliance</h2>
+            </div>
+            <div class="security-grid scroll-reveal">
+                <div class="security-item">
+                    <div class="security-check">✓</div>
+                    <h3>HIPAA-Ready Architecture</h3>
+                    <p>End-to-end encryption for all patient data. PHI is encrypted at rest and in transit using
+                        industry-standard protocols.</p>
+                </div>
+                <div class="security-item">
+                    <div class="security-check">✓</div>
+                    <h3>Azure-Secured Infrastructure</h3>
+                    <p>Deployed on Microsoft Azure with enterprise-grade security, regional data residency, and 99.9%
+                        uptime SLA.</p>
+                </div>
+                <div class="security-item">
+                    <div class="security-check">✓</div>
+                    <h3>Zero Audio Storage</h3>
+                    <p>Audio is processed in real-time during the handoff and immediately discarded. We never retain
+                        voice recordings.</p>
+                </div>
+            </div>
+            <p class="security-disclaimer scroll-reveal">CascadeAI is built with HIPAA-ready architecture. Full HIPAA
+                certification available for enterprise customers with Business Associate Agreements (BAA).</p>
+        </div>
+    </section>
+
+    <!-- ============ FOOTER ============ -->
+    <footer class="footer">
+        <div class="container">
+            <!-- Navigation flow above massive text -->
+            <div class="footer-nav">
+                <div class="footer-nav-tagline">
+                    <h3>Experience the future<br>of clinical handoffs</h3>
+                </div>
+                <div class="footer-nav-links">
+                    <div class="footer-nav-col">
+                        <a href="#mission">Mission</a>
+                        <a href="#why-cascadeai">Why CascadeAI</a>
+                        <a href="#agents">Our Agents</a>
+                        <a href="#how-it-works">How It Works</a>
+                    </div>
+                    <div class="footer-nav-col">
+                        <a href="/app/index.html">Try Now</a>
+                        <a href="architecture.html">Architecture</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Massive Typography -->
+            <div class="footer-massive">
+                CascadeAI
+            </div>
+
+            <!-- Bottom: Credits & Legal -->
+            <div class="footer-bottom">
+                <div class="footer-bottom-left">
+                    <span>&copy; 2026 CascadeAI. All rights reserved.</span>
+                </div>
+
+                <div class="footer-bottom-center">
+                    <svg viewBox="-21 0 140 20" width="200" height="21" class="inline-block align-baseline"
+                        style="transform: translateX(-15px); margin-top: 8px;" aria-label="Designed by Äryan">
+                        <defs>
+                            <pattern id="wave" x="0" y="3" width="120" height="20" patternUnits="userSpaceOnUse">
+                                <path id="wavePath"
+                                    d="M-40 9 Q-30 7 -20 9 T0 9 T20 9 T40 9 T60 9 T80 9 T100 9 T120 9 V20 H-40z"
+                                    fill="#111827">
+                                    <animateTransform attributeName="transform" dur="1.5s" type="translate" from="0,0"
+                                        to="40,0" repeatCount="indefinite"></animateTransform>
+                                </path>
+                            </pattern>
+                            <linearGradient id="gradientWave">
+                                <stop offset="0%" stop-color="#111827"></stop>
+                                <stop offset="100%" stop-color="#6b7280"></stop>
+                            </linearGradient>
+                        </defs>
+                        <text x="0" y="15" fill="url(#wave)" fill-opacity="1.0" font-size="14"
+                            font-family="system-ui, -apple-system, sans-serif" font-weight="400">Designed by
+                            Äryan</text>
+                        <text x="0" y="15" fill="url(#gradientWave)" fill-opacity="0.6" font-size="14"
+                            font-family="system-ui, -apple-system, sans-serif" font-weight="400">Designed by
+                            Äryan</text>
+                    </svg>
+                </div>
+
+                <div class="footer-bottom-right">
+                    <span>Built for Microsoft AI Dev Days 2026</span>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+
+</html>

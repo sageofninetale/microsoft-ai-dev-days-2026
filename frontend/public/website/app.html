@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>CascadeAI — Clinical Handoff App</title>
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#C5E35C",
+                        "forest-green": "#3D522B",
+                        "brand-dark": "#2D4123",
+                        "brand-muted": "#4A5D3F",
+                        "background-light": "#F9F9F7",
+                        "background-dark": "#121410",
+                    },
+                    fontFamily: {
+                        display: ["Playfair Display", "serif"],
+                        sans: ["Inter", "sans-serif"],
+                    },
+                    borderRadius: { DEFAULT: "24px", "lg": "32px" },
+                }
+            },
+        };
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .serif-text {
+            font-family: 'Playfair Display', serif;
+        }
+
+        .italic-serif {
+            font-family: 'Playfair Display', serif;
+            font-style: italic;
+        }
+
+        /* Step transitions */
+        .step-panel {
+            display: none;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity .45s cubic-bezier(.22, 1, .36, 1), transform .45s cubic-bezier(.22, 1, .36, 1);
+        }
+
+        .step-panel.active {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .step-panel.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Progress bar */
+        .progress-dot {
+            transition: all .3s ease;
+        }
+
+        .progress-dot.done {
+            background: #C5E35C;
+            border-color: #C5E35C;
+            color: #2D4123;
+        }
+
+        .progress-dot.current {
+            background: #3D522B;
+            border-color: #3D522B;
+            color: #fff;
+            box-shadow: 0 0 0 4px rgba(197, 227, 92, .35);
+        }
+
+        .progress-line {
+            transition: background .4s;
+        }
+
+        .progress-line.done {
+            background: #C5E35C;
+        }
+
+        /* Waveform */
+        .waveform-bar {
+            animation: waveform 1.2s ease-in-out infinite;
+        }
+
+        @keyframes waveform {
+
+            0%,
+            100% {
+                height: 8px;
+            }
+
+            50% {
+                height: 24px;
+            }
+        }
+
+        .waveform-bar:nth-child(2) {
+            animation-delay: .1s;
+        }
+
+        .waveform-bar:nth-child(3) {
+            animation-delay: .2s;
+        }
+
+        .waveform-bar:nth-child(4) {
+            animation-delay: .3s;
+        }
+
+        .waveform-bar:nth-child(5) {
+            animation-delay: .4s;
+        }
+
+        .waveform-bar:nth-child(6) {
+            animation-delay: .5s;
+        }
+
+        .waveform-bar:nth-child(7) {
+            animation-delay: .6s;
+        }
+
+        .waveform-bar:nth-child(8) {
+            animation-delay: .7s;
+        }
+
+        /* Scrollbar */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* Filter pills */
+        .filter-pill.active {
+            background: #2D4123;
+            color: #fff;
+        }
+
+        /* Priority badges */
+        .badge-critical {
+            background: #FEE2E2;
+            color: #DC2626;
+            border: 1px solid #FECACA;
+        }
+
+        .badge-high {
+            background: #FEF3C7;
+            color: #D97706;
+            border: 1px solid #FDE68A;
+        }
+
+        .badge-routine {
+            background: #DBEAFE;
+            color: #2563EB;
+            border: 1px solid #BFDBFE;
+        }
+
+        .badge-verified {
+            background: #D1FAE5;
+            color: #059669;
+            border: 1px solid #A7F3D0;
+        }
+    </style>
+</head>
+
+<body class="bg-background-light text-slate-800 min-h-screen flex">
+
+    <!-- ===== SIDEBAR ===== -->
+    <aside id="sidebar" class="w-64 border-r border-slate-200 flex flex-col p-6 h-screen sticky top-0 bg-white z-40">
+        <a href="index.html" class="flex items-center gap-2 mb-12 px-2 group">
+            <div class="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center text-white">
+                <span class="material-icons-outlined text-sm">water_drop</span>
+            </div>
+            <span
+                class="font-bold text-xl tracking-tight group-hover:text-forest-green transition-colors">CascadeAI</span>
+        </a>
+        <nav class="space-y-1 flex-1" id="sidebarNav">
+            <a data-step="0"
+                class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-xl bg-forest-green text-white cursor-pointer">
+                <span class="material-icons-outlined">dashboard</span><span class="font-medium">Shift Setup</span>
+            </a>
+            <a data-step="1"
+                class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-slate-100 transition-colors cursor-pointer">
+                <span class="material-icons-outlined">mic</span><span class="font-medium">Add Update</span>
+            </a>
+            <a data-step="2"
+                class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-slate-100 transition-colors cursor-pointer">
+                <span class="material-icons-outlined">feed</span><span class="font-medium">Review Feed</span>
+            </a>
+            <a data-step="3"
+                class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-slate-100 transition-colors cursor-pointer">
+                <span class="material-icons-outlined">warning_amber</span><span class="font-medium">Safety Alerts</span>
+            </a>
+            <a data-step="4"
+                class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-slate-100 transition-colors cursor-pointer">
+                <span class="material-icons-outlined">description</span><span class="font-medium">Handoff Report</span>
+            </a>
+        </nav>
+        <div class="mt-auto pt-6 border-t border-slate-200">
+            <div class="flex items-center gap-3 px-2">
+                <div
+                    class="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-forest-green flex items-center justify-center text-white font-bold text-sm">
+                    SJ</div>
+                <div>
+                    <p class="text-sm font-semibold">Sarah Jenkins, RN</p>
+                    <p class="text-xs text-slate-500">Night Shift • ICU</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ===== MAIN CONTENT ===== -->
+    <main class="flex-1 flex flex-col min-h-screen">
+
+        <!-- Progress Bar -->
+        <div class="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-100 px-8 py-4">
+            <div class="max-w-3xl mx-auto flex items-center gap-0">
+                <div class="progress-dot current w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold"
+                    data-dot="0">1</div>
+                <div class="progress-line flex-1 h-0.5 bg-slate-200" data-line="0"></div>
+                <div class="progress-dot w-8 h-8 rounded-full border-2 border-slate-300 text-slate-400 flex items-center justify-center text-xs font-bold"
+                    data-dot="1">2</div>
+                <div class="progress-line flex-1 h-0.5 bg-slate-200" data-line="1"></div>
+                <div class="progress-dot w-8 h-8 rounded-full border-2 border-slate-300 text-slate-400 flex items-center justify-center text-xs font-bold"
+                    data-dot="2">3</div>
+                <div class="progress-line flex-1 h-0.5 bg-slate-200" data-line="2"></div>
+                <div class="progress-dot w-8 h-8 rounded-full border-2 border-slate-300 text-slate-400 flex items-center justify-center text-xs font-bold"
+                    data-dot="3">4</div>
+                <div class="progress-line flex-1 h-0.5 bg-slate-200" data-line="3"></div>
+                <div class="progress-dot w-8 h-8 rounded-full border-2 border-slate-300 text-slate-400 flex items-center justify-center text-xs font-bold"
+                    data-dot="4">5</div>
+            </div>
+        </div>
+
+        <!-- ==================== STEP 1: SHIFT SETUP ==================== -->
+        <div class="step-panel active visible flex-1" id="step-0">
+            <div class="flex-1 flex flex-col items-center justify-center p-8 lg:p-12">
+                <div class="max-w-3xl w-full text-center mb-12">
+                    <p class="text-xs font-bold tracking-[0.2em] uppercase text-forest-green mb-4">Powered by Azure AI
+                    </p>
+                    <h1 class="text-5xl lg:text-7xl serif-text text-slate-900 leading-tight mb-4">
+                        Ready for <span class="italic-serif">your shift?</span>
+                    </h1>
+                    <p class="text-slate-600 text-lg">
+                        Select your assignment to let CascadeAI begin verifying EMR records and preparing your handoff
+                        workspace.
+                    </p>
+                </div>
+                <div class="max-w-2xl w-full bg-white p-10 rounded-[40px] shadow-sm border border-slate-100">
+                    <div class="space-y-8">
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-500 mb-3 ml-2">Assigned Nurse</label>
+                            <div class="relative">
+                                <select
+                                    class="w-full appearance-none bg-slate-50 border-none rounded-2xl py-5 px-6 focus:ring-2 focus:ring-forest-green text-lg cursor-pointer">
+                                    <option value="">Search or select a nurse...</option>
+                                    <option value="1" selected>Sarah Jenkins (You)</option>
+                                    <option value="2">Michael Chen, RN</option>
+                                    <option value="3">Elena Rodriguez, NP</option>
+                                </select>
+                                <div class="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none">
+                                    <span class="material-icons-outlined text-slate-400">expand_more</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-3 ml-2">
+                                <label class="block text-sm font-semibold text-slate-500">Patient IDs</label>
+                                <span class="text-xs text-slate-400">Separate with commas</span>
+                            </div>
+                            <textarea
+                                class="w-full bg-slate-50 border-none rounded-2xl py-5 px-6 focus:ring-2 focus:ring-forest-green text-lg resize-none"
+                                placeholder="e.g. 1024-A, 1024-B, 1025-C" rows="3">P001, P087, P042</textarea>
+                        </div>
+                        <div
+                            class="flex items-center gap-4 p-4 bg-forest-green/5 rounded-2xl border border-forest-green/10">
+                            <span class="material-icons-outlined text-forest-green">verified_user</span>
+                            <p class="text-sm text-slate-600"><strong>5 AI Agents</strong> will cross-check clinical
+                                data against EMR records as you start.</p>
+                        </div>
+                        <button onclick="goToStep(1)"
+                            class="w-full bg-primary hover:opacity-90 transition-all text-slate-900 font-bold py-6 rounded-2xl text-xl flex items-center justify-center gap-2 group">
+                            Start Shift
+                            <span
+                                class="material-icons-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="mt-12 flex gap-8 text-sm font-medium text-slate-400">
+                    <a class="hover:text-forest-green transition-colors" href="#">Privacy Policy</a>
+                    <a class="hover:text-forest-green transition-colors" href="#">Support</a>
+                    <span>v2.4.0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== STEP 2: ADD PATIENT UPDATE ==================== -->
+        <div class="step-panel" id="step-1">
+            <div class="flex-1 p-6 lg:p-12 overflow-y-auto no-scrollbar">
+                <!-- Header -->
+                <div class="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6 max-w-6xl mx-auto">
+                    <div>
+                        <p class="text-forest-green font-medium tracking-widest uppercase text-xs mb-2">Patient Update
+                        </p>
+                        <h1 class="font-display text-4xl md:text-5xl italic">Add new observation</h1>
+                    </div>
+                    <div class="flex items-center gap-4 bg-white p-2 rounded-2xl shadow-sm border border-slate-100">
+                        <div class="px-6 py-3 bg-forest-green text-white rounded-xl">
+                            <div class="text-[10px] uppercase tracking-wider opacity-70">Current Patient</div>
+                            <div class="font-bold">Bed 12: James Miller</div>
+                        </div>
+                        <button class="p-3 text-slate-400 hover:text-forest-green transition-colors">
+                            <span class="material-icons-outlined">expand_more</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 max-w-6xl mx-auto">
+                    <!-- Left: Input Area -->
+                    <div
+                        class="lg:col-span-8 bg-white rounded-xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
+                        <div class="p-8 md:p-12">
+                            <!-- Audio Recording -->
+                            <div class="flex flex-col items-center text-center mb-16">
+                                <div
+                                    class="w-full max-w-md bg-slate-50 rounded-2xl p-8 mb-8 flex flex-col items-center border border-dashed border-slate-200">
+                                    <div class="flex items-end gap-1.5 h-12 mb-8">
+                                        <div class="waveform-bar w-1.5 bg-primary rounded-full"></div>
+                                        <div class="waveform-bar w-1.5 bg-primary rounded-full"></div>
+                                        <div class="waveform-bar w-1.5 bg-primary rounded-full"></div>
+                                        <div class="waveform-bar w-1.5 bg-primary rounded-full"></div>
+                                        <div class="waveform-bar w-1.5 bg-primary rounded-full"></div>
+                                        <div class="waveform-bar w-1.5 bg-primary rounded-full"></div>
+                                        <div class="waveform-bar w-1.5 bg-primary rounded-full"></div>
+                                        <div class="waveform-bar w-1.5 bg-primary rounded-full"></div>
+                                    </div>
+                                    <button
+                                        class="group relative bg-primary hover:bg-[#b0d250] text-forest-green font-bold py-5 px-10 rounded-full flex items-center gap-3 transition-all transform hover:scale-105 active:scale-95 shadow-lg shadow-primary/20">
+                                        <span class="material-icons-outlined">mic</span>
+                                        Record Audio Update
+                                        <span
+                                            class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 border-2 border-white rounded-full animate-pulse"></span>
+                                    </button>
+                                    <p class="mt-4 text-sm text-slate-500 italic">"Patient reports improved mobility in
+                                        left hip..."</p>
+                                </div>
+                                <div class="flex items-center gap-4 w-full">
+                                    <div class="h-px flex-1 bg-slate-200"></div>
+                                    <span class="text-xs uppercase tracking-widest text-slate-400 font-bold">OR</span>
+                                    <div class="h-px flex-1 bg-slate-200"></div>
+                                </div>
+                            </div>
+                            <!-- Text Input -->
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
+                                    <span class="material-icons-outlined text-forest-green text-sm">edit_note</span>
+                                    Type Text Observation
+                                </label>
+                                <div class="relative group">
+                                    <textarea
+                                        class="w-full bg-slate-50 border-slate-200 rounded-2xl p-6 min-h-[200px] text-lg focus:ring-primary focus:border-primary transition-all placeholder:text-slate-400"
+                                        placeholder="Describe the update here...">So we gave him aspirin, Dolo 350 and crocin 350. Patient is stable and comfortable.</textarea>
+                                    <div class="absolute bottom-4 right-4 flex items-center gap-2">
+                                        <span class="text-xs text-slate-400">Auto-saving...</span>
+                                        <button onclick="goToStep(2)"
+                                            class="bg-forest-green hover:bg-black text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition-colors">
+                                            Submit <span class="material-icons-outlined text-sm">send</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: AI Pipeline -->
+                    <div class="lg:col-span-4 flex flex-col gap-6">
+                        <div class="bg-forest-green text-white p-8 rounded-xl relative overflow-hidden">
+                            <div
+                                class="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full -mr-16 -mt-16 blur-3xl">
+                            </div>
+                            <h3 class="text-xl font-display italic mb-8 relative z-10">AI Processing Pipeline</h3>
+                            <div class="space-y-10 relative z-10">
+                                <div class="flex gap-4">
+                                    <div class="relative">
+                                        <div
+                                            class="w-8 h-8 rounded-full bg-primary text-forest-green flex items-center justify-center relative z-10 shadow-lg shadow-primary/20">
+                                            <span class="material-icons-outlined text-sm font-bold">check</span>
+                                        </div>
+                                        <div class="absolute top-8 left-1/2 -translate-x-1/2 w-px h-10 bg-white/20">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-bold text-sm">Audio Intake</h4>
+                                        <p class="text-xs text-white/60 mt-1">Transcription complete using Whisper v3.
+                                            Processed in 0.8s.</p>
+                                    </div>
+                                </div>
+                                <div class="flex gap-4">
+                                    <div class="relative">
+                                        <div
+                                            class="w-8 h-8 rounded-full bg-primary text-forest-green flex items-center justify-center relative z-10">
+                                            <span
+                                                class="material-icons-outlined text-sm font-bold animate-spin">refresh</span>
+                                        </div>
+                                        <div class="absolute top-8 left-1/2 -translate-x-1/2 w-px h-10 bg-white/20">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-bold text-sm">Cross-EMR Verification</h4>
+                                        <p class="text-xs text-white/60 mt-1">Cross-referencing with live EPIC records
+                                            for vitals and labs...</p>
+                                    </div>
+                                </div>
+                                <div class="flex gap-4 opacity-40">
+                                    <div class="relative">
+                                        <div
+                                            class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center relative z-10">
+                                            <span class="material-icons-outlined text-sm">shield</span>
+                                        </div>
+                                        <div class="absolute top-8 left-1/2 -translate-x-1/2 w-px h-10 bg-white/10">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-bold text-sm">Safety Net Check</h4>
+                                        <p class="text-xs text-white/60 mt-1">Scanning for contraindications and
+                                            protocol alerts.</p>
+                                    </div>
+                                </div>
+                                <div class="flex gap-4 opacity-40">
+                                    <div class="relative">
+                                        <div
+                                            class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center relative z-10">
+                                            <span class="material-icons-outlined text-sm">description</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-bold text-sm">Handoff Generation</h4>
+                                        <p class="text-xs text-white/60 mt-1">Synthesizing structured SBAR report.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-white border border-slate-100 p-8 rounded-xl">
+                            <div class="flex justify-between items-center mb-6">
+                                <span class="text-xs font-bold uppercase tracking-widest text-slate-400">Shift
+                                    Efficiency</span>
+                                <span class="text-forest-green font-bold">97%</span>
+                            </div>
+                            <div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                                <div class="bg-primary h-full w-[97%]"></div>
+                            </div>
+                            <p class="mt-4 text-xs text-slate-500">You've saved <span
+                                    class="text-slate-900 font-bold">2.4 hours</span> of paperwork this shift. Excellent
+                                work, Sarah.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Navigation -->
+                <div class="max-w-6xl mx-auto mt-12 flex justify-between">
+                    <button onclick="goToStep(0)"
+                        class="flex items-center gap-2 text-slate-500 hover:text-forest-green font-medium transition-colors">
+                        <span class="material-icons-outlined">arrow_back</span> Back to Setup
+                    </button>
+                    <button onclick="goToStep(2)"
+                        class="flex items-center gap-2 bg-primary hover:opacity-90 text-slate-900 font-bold px-8 py-4 rounded-2xl transition-all group">
+                        Review Feed <span
+                            class="material-icons-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- STEPS 3-5 PLACEHOLDER (will be added next) -->
+        <div class="step-panel" id="step-2">
+            <div class="flex flex-1 overflow-hidden h-[calc(100vh-72px)]">
+                <!-- Patient Sidebar -->
+                <aside class="w-72 border-r border-slate-200 flex flex-col bg-white overflow-hidden">
+                    <div class="p-4 border-b border-slate-100 flex justify-between items-center">
+                        <h2 class="font-semibold text-slate-500 uppercase tracking-wider text-xs">Active Patients (12)
+                        </h2>
+                        <span
+                            class="material-icons-outlined text-slate-400 cursor-pointer hover:text-forest-green text-lg">search</span>
+                    </div>
+                    <div class="flex-1 overflow-y-auto no-scrollbar">
+                        <div class="p-4 bg-primary/10 border-l-4 border-primary cursor-pointer">
+                            <div class="flex justify-between items-start mb-1">
+                                <span class="font-bold text-lg">Chen, Elena</span>
+                                <span
+                                    class="bg-red-100 text-red-700 text-[10px] px-2 py-0.5 rounded-full font-bold">STAT</span>
+                            </div>
+                            <p class="text-sm text-slate-500">Room 402 • Medical-Surgical</p>
+                            <div class="mt-3"><span class="text-[10px] bg-slate-200 px-2 py-0.5 rounded">3 New
+                                    Updates</span></div>
+                        </div>
+                        <div class="p-4 border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors">
+                            <div class="flex justify-between items-start mb-1"><span class="font-semibold">Rodriguez,
+                                    Marcos</span><span class="text-xs text-slate-400">14m ago</span></div>
+                            <p class="text-sm text-slate-500">Room 405 • ICU Stepdown</p>
+                        </div>
+                        <div class="p-4 border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors">
+                            <div class="flex justify-between items-start mb-1"><span class="font-semibold">Thompson,
+                                    Sarah</span><span class="text-xs text-slate-400">1h ago</span></div>
+                            <p class="text-sm text-slate-500">Room 412 • Medical-Surgical</p>
+                        </div>
+                        <div class="p-4 border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors">
+                            <div class="flex justify-between items-start mb-1"><span class="font-semibold">Miller,
+                                    James</span><span class="text-xs text-slate-400">2h ago</span></div>
+                            <p class="text-sm text-slate-500">Room 408 • Cardiology</p>
+                        </div>
+                    </div>
+                </aside>
+
+                <!-- Main Feed -->
+                <section class="flex-1 flex flex-col bg-slate-50 overflow-hidden">
+                    <div class="p-8 pb-4">
+                        <div class="flex justify-between items-end mb-6">
+                            <div>
+                                <p class="text-forest-green font-semibold uppercase tracking-widest text-xs mb-2">Review
+                                    &amp; Process</p>
+                                <h1 class="font-display text-4xl">Patient Updates <span class="italic-serif">Review
+                                        Feed</span></h1>
+                            </div>
+                            <div class="flex gap-3">
+                                <button
+                                    class="flex items-center gap-2 px-4 py-2 border border-slate-200 bg-white rounded-full text-sm font-medium hover:bg-slate-50 transition-colors">
+                                    <span class="material-icons-outlined text-sm">history</span> History
+                                </button>
+                                <button onclick="goToStep(3)"
+                                    class="flex items-center gap-2 px-6 py-2 bg-primary text-forest-green rounded-full text-sm font-bold hover:shadow-lg hover:shadow-primary/20 transition-all">
+                                    Generate Handoff Report <span
+                                        class="material-icons-outlined text-sm">arrow_forward</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            <button class="filter-pill active px-4 py-1.5 rounded-full text-xs font-medium">All
+                                Updates</button>
+                            <button
+                                class="filter-pill px-4 py-1.5 bg-white text-slate-600 border border-slate-200 rounded-full text-xs font-medium hover:border-primary transition-colors">Medications</button>
+                            <button
+                                class="filter-pill px-4 py-1.5 bg-white text-slate-600 border border-slate-200 rounded-full text-xs font-medium hover:border-primary transition-colors">Vitals</button>
+                            <button
+                                class="filter-pill px-4 py-1.5 bg-white text-slate-600 border border-slate-200 rounded-full text-xs font-medium hover:border-primary transition-colors">Lab
+                                Results</button>
+                        </div>
+                    </div>
+                    <div class="flex-1 overflow-y-auto p-8 pt-2 no-scrollbar">
+                        <div class="max-w-4xl mx-auto space-y-6">
+                            <!-- Timestamp -->
+                            <div class="relative py-4">
+                                <div class="absolute inset-0 flex items-center">
+                                    <div class="w-full border-t border-slate-200"></div>
+                                </div>
+                                <div class="relative flex justify-center"><span
+                                        class="bg-slate-50 px-3 text-xs font-semibold text-slate-400 uppercase tracking-widest">Today,
+                                        08:45 AM</span></div>
+                            </div>
+
+                            <!-- Vitals Card -->
+                            <div
+                                class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden hover:border-primary/50 transition-all">
+                                <div class="p-5 flex gap-5">
+                                    <div
+                                        class="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0 text-blue-600">
+                                        <span class="material-icons-outlined">favorite</span>
+                                    </div>
+                                    <div class="flex-1">
+                                        <div class="flex justify-between items-start mb-2">
+                                            <h3 class="font-display text-xl">Vitals <span
+                                                    class="italic-serif">Cross-check</span></h3>
+                                            <div class="flex gap-2">
+                                                <button class="text-slate-400 hover:text-red-500"><span
+                                                        class="material-icons-outlined text-lg">close</span></button>
+                                                <button class="text-slate-400 hover:text-primary"><span
+                                                        class="material-icons-outlined text-lg">check_circle</span></button>
+                                            </div>
+                                        </div>
+                                        <div class="grid grid-cols-3 gap-4 mb-4">
+                                            <div class="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                                <p
+                                                    class="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">
+                                                    BP</p>
+                                                <p class="text-lg font-semibold">142/88 <span
+                                                        class="text-xs font-normal text-red-500">↑</span></p>
+                                            </div>
+                                            <div class="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                                <p
+                                                    class="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">
+                                                    Heart Rate</p>
+                                                <p class="text-lg font-semibold">92 bpm</p>
+                                            </div>
+                                            <div class="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                                <p
+                                                    class="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">
+                                                    SpO2</p>
+                                                <p class="text-lg font-semibold">97%</p>
+                                            </div>
+                                        </div>
+                                        <div
+                                            class="flex items-center gap-2 text-xs text-slate-500 bg-blue-50/50 p-2 rounded-md italic">
+                                            <span class="material-icons-outlined text-sm">auto_awesome</span>
+                                            <span>AI verified: Values are consistent with automated EMR monitoring at
+                                                08:30.</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Medication Card -->
+                            <div
+                                class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden hover:border-primary/50 transition-all">
+                                <div class="p-5 flex gap-5">
+                                    <div
+                                        class="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0 text-amber-600">
+                                        <span class="material-icons-outlined">medication</span>
+                                    </div>
+                                    <div class="flex-1">
+                                        <div class="flex justify-between items-start mb-2">
+                                            <h3 class="font-display text-xl">Medication <span
+                                                    class="italic-serif">Administration</span></h3>
+                                            <div class="flex gap-2">
+                                                <button class="text-slate-400 hover:text-red-500"><span
+                                                        class="material-icons-outlined text-lg">close</span></button>
+                                                <button class="text-slate-400 hover:text-primary"><span
+                                                        class="material-icons-outlined text-lg">check_circle</span></button>
+                                            </div>
+                                        </div>
+                                        <div
+                                            class="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100 mb-3">
+                                            <div>
+                                                <p class="font-semibold text-slate-800">Metoprolol Tartrate</p>
+                                                <p class="text-xs text-slate-500">25 mg, Oral, BID</p>
+                                            </div>
+                                            <span
+                                                class="text-[10px] font-bold bg-green-100 text-green-700 px-2 py-1 rounded-full uppercase">Administered</span>
+                                        </div>
+                                        <p class="text-sm text-slate-600">"Patient reported mild dizziness after morning
+                                            dose. Advised to stay in bed until symptoms resolve."</p>
+                                        <div
+                                            class="mt-4 flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                                            <div class="flex items-center gap-1"><span
+                                                    class="material-icons-outlined text-xs">history_edu</span> Drafted
+                                                for EMR</div>
+                                            <div class="flex items-center gap-1 text-primary"><span
+                                                    class="material-icons-outlined text-xs">verified</span> Checked
+                                                against Protocols</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Lab Results Card -->
+                            <div
+                                class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden hover:border-primary/50 transition-all">
+                                <div class="p-5 flex gap-5">
+                                    <div
+                                        class="w-12 h-12 rounded-xl bg-purple-50 flex items-center justify-center flex-shrink-0 text-purple-600">
+                                        <span class="material-icons-outlined">science</span>
+                                    </div>
+                                    <div class="flex-1">
+                                        <div class="flex justify-between items-start mb-2">
+                                            <h3 class="font-display text-xl">New <span class="italic-serif">Lab
+                                                    Results</span></h3>
+                                            <div class="flex gap-2">
+                                                <button class="text-slate-400 hover:text-red-500"><span
+                                                        class="material-icons-outlined text-lg">close</span></button>
+                                                <button class="text-slate-400 hover:text-primary"><span
+                                                        class="material-icons-outlined text-lg">check_circle</span></button>
+                                            </div>
+                                        </div>
+                                        <div class="p-4 border border-dashed border-slate-200 rounded-lg">
+                                            <div class="flex justify-between items-center mb-2">
+                                                <span class="text-sm font-medium">Potassium (K+)</span>
+                                                <span class="text-sm font-bold text-red-500">3.2 mEq/L (Low)</span>
+                                            </div>
+                                            <div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                                                <div class="bg-red-500 h-full w-[30%]"></div>
+                                            </div>
+                                            <p class="mt-3 text-xs text-slate-500 italic">"Critical lab alert triggered.
+                                                AI suggests adding potassium protocol update to handoff summary."</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Command Center -->
+                <aside class="w-72 border-l border-slate-200 bg-white flex flex-col">
+                    <div class="p-6 border-b border-slate-100">
+                        <h3 class="font-display text-2xl mb-1">Command <span class="italic-serif">Center</span></h3>
+                        <p class="text-xs text-slate-400 uppercase tracking-widest font-bold">Shift Progress</p>
+                    </div>
+                    <div class="p-6 flex-1 space-y-8">
+                        <div>
+                            <div class="flex justify-between text-xs font-bold uppercase tracking-wider mb-2">
+                                <span class="text-slate-500">AI Verification</span><span
+                                    class="text-primary">98.2%</span>
+                            </div>
+                            <div class="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                                <div class="h-full bg-primary" style="width:98%;"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Agent Activity
+                            </h4>
+                            <div class="space-y-4">
+                                <div class="flex gap-3">
+                                    <div class="w-1.5 h-1.5 rounded-full bg-green-500 mt-1.5"></div>
+                                    <div>
+                                        <p class="text-xs font-semibold">Orchestrator</p>
+                                        <p class="text-[10px] text-slate-500">Verified lab data vs history</p>
+                                    </div>
+                                </div>
+                                <div class="flex gap-3">
+                                    <div class="w-1.5 h-1.5 rounded-full bg-primary mt-1.5"></div>
+                                    <div>
+                                        <p class="text-xs font-semibold">Transcription Agent</p>
+                                        <p class="text-[10px] text-slate-500">Processed 4m audio stream</p>
+                                    </div>
+                                </div>
+                                <div class="flex gap-3">
+                                    <div class="w-1.5 h-1.5 rounded-full bg-slate-300 mt-1.5"></div>
+                                    <div>
+                                        <p class="text-xs font-semibold">EMR Sync Agent</p>
+                                        <p class="text-[10px] text-slate-500">Standby for handoff report</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-forest-green rounded-xl p-4 text-white">
+                            <span class="material-icons-outlined text-primary text-xl mb-2">lightbulb</span>
+                            <p class="text-sm font-medium mb-1">Pro Tip</p>
+                            <p class="text-xs text-white/70 leading-relaxed">Say "Finalize handoff" at any time to
+                                bundle all pending updates into a report.</p>
+                        </div>
+                    </div>
+                </aside>
+            </div>
+        </div>
+        <div class="step-panel" id="step-3">
+            <div class="flex-1 overflow-y-auto p-8 lg:p-12 no-scrollbar">
+                <div class="max-w-4xl mx-auto">
+                    <!-- Header -->
+                    <div class="mb-10">
+                        <p class="text-forest-green font-semibold uppercase tracking-widest text-xs mb-2">Clinical
+                            Intelligence</p>
+                        <h1 class="font-display text-4xl md:text-5xl mb-3">Clinical Intelligence <span
+                                class="italic-serif">&amp; Handoff</span></h1>
+                        <p class="text-slate-500">Automated safety verification and longitudinal patient timeline for
+                            the current shift.</p>
+                    </div>
+
+                    <!-- Safety Alerts -->
+                    <div class="mb-10">
+                        <h2 class="flex items-center gap-2 font-display text-2xl mb-6"><span
+                                class="material-icons-outlined text-amber-500">warning</span> Safety Alerts</h2>
+                        <div class="space-y-4">
+                            <!-- Alert 1: Duplicate Dosing -->
+                            <div
+                                class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 hover:border-amber-300 transition-all">
+                                <div class="flex gap-4">
+                                    <div class="w-1.5 rounded-full bg-red-500 flex-shrink-0"></div>
+                                    <div class="flex-1">
+                                        <div class="flex items-center gap-2 mb-1">
+                                            <span
+                                                class="badge-critical text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">Duplicate
+                                                Dosing Agent</span>
+                                            <span class="text-xs text-slate-400">• Just now</span>
+                                        </div>
+                                        <p class="text-sm text-slate-800 leading-relaxed">Two <strong>acetaminophen
+                                                products</strong> given at 12:47 AM (Dolo 350 + Crocin 350). These
+                                            contain the same active ingredient and represent a duplicate dosing event;
+                                            verify total daily intake to avoid cumulative hepatotoxicity.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Alert 2: EMR Discrepancy -->
+                            <div
+                                class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 hover:border-amber-300 transition-all">
+                                <div class="flex gap-4">
+                                    <div class="w-1.5 rounded-full bg-amber-400 flex-shrink-0"></div>
+                                    <div class="flex-1">
+                                        <div class="flex items-center gap-2 mb-1">
+                                            <span
+                                                class="badge-high text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">EMR
+                                                Discrepancy</span>
+                                            <span class="text-xs text-slate-400">• 1:07 AM</span>
+                                        </div>
+                                        <p class="text-sm text-slate-800 leading-relaxed">An additional <strong>aspirin
+                                                dose</strong> was administered while aspirin 325 mg is listed in EMR as
+                                            a daily home med. Confirm if this was scheduled or an extra dose to avoid
+                                            excess bleeding risk.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Alert 3: Missing Vitals -->
+                            <div
+                                class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 hover:border-amber-300 transition-all">
+                                <div class="flex gap-4">
+                                    <div class="w-1.5 rounded-full bg-orange-400 flex-shrink-0"></div>
+                                    <div class="flex-1">
+                                        <div class="flex items-center gap-2 mb-1">
+                                            <span
+                                                class="badge-high text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">Clinical
+                                                Monitoring</span>
+                                            <span class="text-xs text-slate-400">• Pending</span>
+                                        </div>
+                                        <p class="text-sm text-slate-800 leading-relaxed">No recent vitals recorded in
+                                            shift notes. <strong>Obtain HR, BP, SpO2</strong>, and pain score after
+                                            analgesic administration to assess response and detect adverse effects.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Patient Timeline -->
+                    <div class="mb-10">
+                        <h2 class="flex items-center gap-2 font-display text-2xl mb-6"><span
+                                class="material-icons-outlined text-forest-green">timeline</span> Patient Timeline</h2>
+                        <div class="space-y-6">
+                            <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+                                <div class="flex items-center gap-3 mb-3">
+                                    <span class="text-lg font-bold text-slate-800">12:47 AM</span>
+                                    <div class="flex gap-2">
+                                        <span
+                                            class="text-[10px] font-bold bg-primary/30 text-forest-green px-2 py-0.5 rounded-full">Aspirin
+                                            325mg</span>
+                                        <span
+                                            class="text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Dolo
+                                            350mg</span>
+                                        <span
+                                            class="text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Crocin
+                                            350mg</span>
+                                    </div>
+                                </div>
+                                <p class="text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-2">
+                                    Medication Admin</p>
+                                <p class="text-sm text-slate-600">Administered aspirin, Dolo 350 and Crocin 350 for
+                                    symptomatic relief. AI flags: possible duplicate acetaminophen exposure; medications
+                                    not yet verified in EMR.</p>
+                            </div>
+                            <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+                                <div class="flex items-center gap-3 mb-3">
+                                    <span class="text-lg font-bold text-slate-800">11:15 PM</span>
+                                    <span
+                                        class="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Digital
+                                        Assessment</span>
+                                </div>
+                                <p class="text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-2">Shift
+                                    Start</p>
+                                <p class="text-sm text-slate-600">Patient comfortable, resting in bed. No acute distress
+                                    noted at start of shift.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Active Medications -->
+                    <div class="mb-10">
+                        <h2 class="flex items-center gap-2 font-display text-2xl mb-6"><span
+                                class="material-icons-outlined text-purple-600">medication</span> Active Medications
+                        </h2>
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div class="bg-white rounded-xl border border-slate-200 p-4 text-center">
+                                <p class="font-semibold text-sm mb-1">Metoprolol</p>
+                                <p class="text-xs text-slate-500 mb-2">25mg PO BID</p>
+                                <span
+                                    class="badge-verified text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">Verified</span>
+                            </div>
+                            <div class="bg-white rounded-xl border border-slate-200 p-4 text-center">
+                                <p class="font-semibold text-sm mb-1">Dolo 350</p>
+                                <p class="text-xs text-slate-500 mb-2">350mg PO PRN</p>
+                                <span
+                                    class="badge-high text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">Duplicate</span>
+                            </div>
+                            <div class="bg-white rounded-xl border border-slate-200 p-4 text-center">
+                                <p class="font-semibold text-sm mb-1">Atorvastatin</p>
+                                <p class="text-xs text-slate-500 mb-2">40mg PO daily (qHS)</p>
+                                <span
+                                    class="badge-verified text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">Verified</span>
+                            </div>
+                            <div class="bg-white rounded-xl border border-slate-200 p-4 text-center">
+                                <p class="font-semibold text-sm mb-1">Aspirin</p>
+                                <p class="text-xs text-slate-500 mb-2">325mg PO daily</p>
+                                <span
+                                    class="badge-high text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">Review</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Navigation -->
+                    <div class="flex justify-between items-center mt-12 pb-8">
+                        <button onclick="goToStep(2)"
+                            class="flex items-center gap-2 text-slate-500 hover:text-forest-green font-medium transition-colors">
+                            <span class="material-icons-outlined">arrow_back</span> Back to Review Feed
+                        </button>
+                        <button onclick="goToStep(4)"
+                            class="flex items-center gap-2 bg-primary hover:opacity-90 text-slate-900 font-bold px-8 py-4 rounded-2xl transition-all group">
+                            View Handoff Report <span
+                                class="material-icons-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="step-panel" id="step-4">
+            <div class="flex-1 overflow-y-auto p-8 lg:p-12 no-scrollbar">
+                <div class="max-w-3xl mx-auto">
+                    <!-- Header -->
+                    <div class="flex justify-between items-start mb-10">
+                        <div>
+                            <p class="text-forest-green font-semibold uppercase tracking-widest text-xs mb-2">CascadeAI
+                            </p>
+                            <h1 class="font-display text-4xl md:text-5xl mb-2">Final Handoff <span
+                                    class="italic-serif">Report</span></h1>
+                            <p class="text-slate-500">Patient: Thomas Marks (Room 402B)</p>
+                        </div>
+                        <button class="p-3 text-slate-400 hover:text-forest-green transition-colors">
+                            <span class="material-icons-outlined text-2xl">print</span>
+                        </button>
+                    </div>
+
+                    <!-- Pending Actions -->
+                    <div class="mb-10">
+                        <h2 class="flex items-center gap-2 font-display text-2xl mb-6"><span
+                                class="material-icons-outlined text-forest-green">checklist</span> Pending Actions</h2>
+                        <div class="space-y-4">
+                            <div
+                                class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex gap-4 items-start hover:shadow-md transition-all">
+                                <div
+                                    class="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center flex-shrink-0">
+                                    <span class="material-icons-outlined text-red-500 text-lg">priority_high</span>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-sm text-slate-800 leading-relaxed">Verify exact doses and times for
+                                        the aspirin given at 12:47 AM and reconcile with EMR aspirin order.</p>
+                                </div>
+                                <span
+                                    class="badge-critical text-[10px] font-bold px-3 py-1 rounded-full uppercase flex-shrink-0">Critical</span>
+                            </div>
+                            <div
+                                class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex gap-4 items-start hover:shadow-md transition-all">
+                                <div
+                                    class="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center flex-shrink-0">
+                                    <span class="material-icons-outlined text-amber-500 text-lg">warning</span>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-sm text-slate-800 leading-relaxed">Confirm acetaminophen total for
+                                        previous 24 hours; notify prescribing clinician if &gt;3000–4000 mg.</p>
+                                </div>
+                                <span
+                                    class="badge-high text-[10px] font-bold px-3 py-1 rounded-full uppercase flex-shrink-0">High</span>
+                            </div>
+                            <div
+                                class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex gap-4 items-start hover:shadow-md transition-all">
+                                <div
+                                    class="w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center flex-shrink-0">
+                                    <span class="material-icons-outlined text-orange-500 text-lg">monitor_heart</span>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-sm text-slate-800 leading-relaxed">Obtain and document current vital
+                                        signs (HR, BP, SpO2, Temp) to assess response to analgesics.</p>
+                                </div>
+                                <span
+                                    class="badge-high text-[10px] font-bold px-3 py-1 rounded-full uppercase flex-shrink-0">High</span>
+                            </div>
+                            <div
+                                class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex gap-4 items-start hover:shadow-md transition-all">
+                                <div
+                                    class="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
+                                    <span class="material-icons-outlined text-blue-500 text-lg">edit_note</span>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-sm text-slate-800 leading-relaxed">Update Medication Administration
+                                        Record (MAR) with details of the 12:47 AM administrations.</p>
+                                </div>
+                                <span
+                                    class="badge-routine text-[10px] font-bold px-3 py-1 rounded-full uppercase flex-shrink-0">Routine</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Narrative Summary -->
+                    <div class="mb-10">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="flex items-center gap-2 font-display text-2xl"><span
+                                    class="material-icons-outlined text-forest-green">article</span> Narrative Summary
+                            </h2>
+                            <button
+                                class="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-forest-green transition-colors uppercase tracking-wider">
+                                <span class="material-icons-outlined text-sm">content_copy</span> Copy to Clipboard
+                            </button>
+                        </div>
+                        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-8">
+                            <div class="prose prose-sm max-w-none text-slate-700 leading-relaxed space-y-4">
+                                <p>Thomas Marks (T8M, Room 402B) had a stable shift with vital signs not documented
+                                    during the shift. At 00:47, the patient was given aspirin, Dolo 350 and Crocin 350
+                                    for symptomatic relief. Current EMR home medications include Metoprolol 25 mg BID,
+                                    Furosemide 40 mg daily, Levothyroxine 50 mcg daily, Aspirin 325 mg daily, Metformin
+                                    500 mg BID, and Omeprazole 20 mg daily; allergies: none.</p>
+                                <p>The aspirin administered corresponds to an active EMR medication (Aspirin 325 mg
+                                    daily), whereas the Dolo 350 and Crocin 350 (paracetamol/acetaminophen preparations)
+                                    are not documented in the EMR and require medication reconciliation. No other
+                                    medication changes were made or documented during the shift. Blood work pending; no
+                                    specialty consults have been placed at this time.</p>
+                                <p>The patient remains comfortable and stable, requiring routine monitoring with no
+                                    acute changes noted. <strong>Critical action required:</strong> Reconcile the
+                                    overnight administration of aspirin and two separate acetaminophen products with the
+                                    medication record, confirm total dosage safety limits, and document updated vital
+                                    signs immediately.</p>
+                            </div>
+                            <p class="mt-6 text-xs text-slate-400 italic">Review carefully before confirming. Summary
+                                generated by CascadeAI based on clinical logs.</p>
+                        </div>
+                    </div>
+
+                    <!-- Confirm Button -->
+                    <div class="text-center pb-12">
+                        <button onclick="alert('✅ Handoff report finalized and sent to incoming nurse!')"
+                            class="bg-primary hover:opacity-90 text-slate-900 font-bold px-12 py-5 rounded-2xl text-lg transition-all inline-flex items-center gap-3 shadow-lg shadow-primary/20 group">
+                            Confirm and Finalize Handoff
+                            <span
+                                class="material-icons-outlined group-hover:translate-x-1 transition-transform">check_circle</span>
+                        </button>
+                        <p class="mt-4 text-sm text-slate-400">Save Draft and Edit</p>
+                    </div>
+
+                    <!-- Navigation -->
+                    <div class="flex justify-between items-center pb-8">
+                        <button onclick="goToStep(3)"
+                            class="flex items-center gap-2 text-slate-500 hover:text-forest-green font-medium transition-colors">
+                            <span class="material-icons-outlined">arrow_back</span> Back to Safety Alerts
+                        </button>
+                        <a href="index.html"
+                            class="flex items-center gap-2 text-slate-500 hover:text-forest-green font-medium transition-colors">
+                            Back to Home <span class="material-icons-outlined">home</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        let currentStep = 0;
+        const totalSteps = 5;
+
+        function goToStep(n) {
+            if (n < 0 || n >= totalSteps) return;
+            // Hide current
+            const cur = document.getElementById('step-' + currentStep);
+            cur.classList.remove('visible');
+            setTimeout(() => { cur.classList.remove('active'); }, 300);
+
+            currentStep = n;
+
+            // Show next
+            setTimeout(() => {
+                const next = document.getElementById('step-' + n);
+                next.classList.add('active');
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => { next.classList.add('visible'); });
+                });
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }, 320);
+
+            // Update progress dots
+            document.querySelectorAll('.progress-dot').forEach((dot, i) => {
+                dot.className = 'progress-dot w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold ';
+                if (i < n) dot.className += 'done';
+                else if (i === n) dot.className += 'current';
+                else dot.className += 'border-slate-300 text-slate-400';
+            });
+            document.querySelectorAll('.progress-line').forEach((line, i) => {
+                line.className = 'progress-line flex-1 h-0.5 ' + (i < n ? 'done' : 'bg-slate-200');
+            });
+
+            // Update sidebar
+            document.querySelectorAll('.sidebar-link').forEach((link, i) => {
+                if (i === n) {
+                    link.className = 'sidebar-link flex items-center gap-3 px-4 py-3 rounded-xl bg-forest-green text-white cursor-pointer';
+                } else {
+                    link.className = 'sidebar-link flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-slate-100 transition-colors cursor-pointer';
+                }
+            });
+        }
+
+        // Sidebar click
+        document.querySelectorAll('.sidebar-link').forEach(link => {
+            link.addEventListener('click', () => {
+                goToStep(parseInt(link.dataset.step));
+            });
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Centered Vertical Layout Mockup</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            background: var(--bg-accent);
+            padding: 80px 0;
+        }
+
+        .workflow-centered-layout {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .workflow-text-top {
+            text-align: center;
+            max-width: 1000px;
+            /* Wide enough for 1 line */
+            margin-bottom: 60px;
+            /* Space before diagram */
+        }
+
+        .workflow-text-top .workflow-title {
+            font-size: clamp(32px, 4vw, 52px);
+            margin-bottom: 24px;
+            color: var(--text-on-dark);
+            white-space: nowrap;
+            /* Force 1 line */
+        }
+
+        .workflow-text-top .workflow-body {
+            max-width: 900px;
+            margin: 0 auto 12px auto;
+            font-size: 18px;
+            color: var(--text-on-dark-s);
+            line-height: 1.6;
+        }
+
+        /* The diagram container */
+        .workflow-diagram-center {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            /* Contains the lines and nodes */
+            height: 940px;
+            /* Enough for all vertical nodes */
+            margin: 0 auto;
+        }
+
+        /* Connecting lines */
+        .wf-lines-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        .w-line {
+            stroke: rgba(255, 255, 255, 0.2);
+            stroke-width: 2;
+            stroke-dasharray: 6 6;
+        }
+
+        /* Nodes */
+        .wf-v-node {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 280px;
+            padding: 20px;
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.05);
+            /* very light card background exactly like original styles */
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            z-index: 2;
+            text-align: center;
+        }
+
+        .wf-v-node-icon {
+            color: #fff;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .wf-v-node-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-bottom: 12px;
+            box-shadow: 0 0 12px currentColor;
+        }
+
+        .wf-v-name {
+            font-family: var(--font-heading);
+            font-size: 18px;
+            font-weight: 500;
+            color: var(--text-on-dark);
+            margin-bottom: 4px;
+        }
+
+        .wf-v-sub {
+            font-size: 13px;
+            color: var(--text-on-dark-s);
+        }
+
+        .wf-v-badges {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .wf-v-badge {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 4px 10px;
+            border-radius: 12px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="workflow-centered-layout">
+
+            <!-- Text on top, full width -->
+            <div class="workflow-text-top">
+                <p class="section-eyebrow section-eyebrow--light" style="justify-content: center;">Multi-agent
+                    architecture</p>
+                <h2 class="workflow-title">5 specialized agents. <em>One pipeline.</em></h2>
+                <p class="workflow-body">Every handoff flows through a verified pipeline - from your voice to a
+                    complete, safety-checked report in 30 seconds.</p>
+                <p class="workflow-body">Each agent is a specialist. The CoordinatorAgent orchestrates them all,
+                    calculating weighted risk scores so nothing gets missed.</p>
+                <a href="#how-it-works" class="btn btn-mint magnetic"
+                    style="margin-top: 24px; display: inline-flex;">See how it works <span
+                        class="arrow">&rarr;</span></a>
+            </div>
+
+            <!-- Vertical diagram, centered -->
+            <div class="workflow-diagram-center">
+                <svg class="wf-lines-svg" viewBox="0 0 600 940" fill="none" preserveAspectRatio="xMidYMid meet">
+                    <!-- 1. Audio to 2. Intake -->
+                    <line x1="300" y1="100" x2="300" y2="150" class="w-line" />
+                    <!-- 2. Intake to 3. Update -->
+                    <line x1="300" y1="230" x2="300" y2="280" class="w-line" />
+                    <!-- 3. Update to 4. Coordinator -->
+                    <line x1="300" y1="360" x2="300" y2="410" class="w-line" />
+
+                    <!-- 4. Coordinator to Parallels -->
+                    <line x1="300" y1="490" x2="160" y2="550" class="w-line" />
+                    <line x1="300" y1="490" x2="440" y2="550" class="w-line" />
+
+                    <!-- Parallels to DraftGen -->
+                    <line x1="160" y1="630" x2="300" y2="690" class="w-line" />
+                    <line x1="440" y1="630" x2="300" y2="690" class="w-line" />
+
+                    <!-- DraftGen to Final -->
+                    <line x1="300" y1="770" x2="300" y2="820" class="w-line" />
+                </svg>
+
+                <div class="wf-v-node" style="top: 0px;">
+                    <div class="wf-v-node-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                        </svg></div>
+                    <span class="wf-v-name">Nurse Audio Level</span>
+                    <span class="wf-v-sub">verbal handoff</span>
+                </div>
+
+                <div class="wf-v-node" style="top: 150px;">
+                    <div class="wf-v-node-dot" style="background: var(--agent-blue); color: var(--agent-blue);"></div>
+                    <span class="wf-v-name">IntakeAgent</span>
+                    <span class="wf-v-sub">Speech-to-Text Transcription</span>
+                </div>
+
+                <div class="wf-v-node" style="top: 280px;">
+                    <div class="wf-v-node-dot" style="background: var(--agent-red); color: var(--agent-red);"></div>
+                    <span class="wf-v-name">UpdateAgent</span>
+                    <span class="wf-v-sub">Extract Structured Data</span>
+                </div>
+
+                <div class="wf-v-node" style="top: 410px;">
+                    <div class="wf-v-node-dot" style="background: var(--cta-mint); color: var(--cta-mint);"></div>
+                    <span class="wf-v-name">CoordinatorAgent</span>
+                    <span class="wf-v-sub">Orchestrator &middot; Risk Scoring</span>
+                </div>
+
+                <!-- Parallel left -->
+                <div class="wf-v-node" style="top: 550px; left: 160px; width: 220px;">
+                    <div class="wf-v-node-dot" style="background: var(--agent-green); color: var(--agent-green);"></div>
+                    <span class="wf-v-name">VerificationAgent</span>
+                    <span class="wf-v-sub">EMR Cross-Check</span>
+                </div>
+
+                <!-- Parallel right -->
+                <div class="wf-v-node" style="top: 550px; left: 440px; width: 220px;">
+                    <div class="wf-v-node-dot" style="background: var(--agent-amber); color: var(--agent-amber);"></div>
+                    <span class="wf-v-name">ProtocolAgent</span>
+                    <span class="wf-v-sub">ACS &middot; Fall &middot; HTN</span>
+                </div>
+
+                <div class="wf-v-node" style="top: 690px;">
+                    <div class="wf-v-node-dot" style="background: var(--agent-purple); color: var(--agent-purple);">
+                    </div>
+                    <span class="wf-v-name">DraftGenerator</span>
+                    <span class="wf-v-sub">Fetches ALL updates</span>
+                </div>
+
+                <div class="wf-v-node" style="top: 820px;">
+                    <div class="wf-v-node-icon" style="color:#86efac; background: rgba(34, 197, 94, 0.1);"><svg
+                            width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <polyline points="14 2 14 8 20 8" />
+                            <line x1="16" y1="13" x2="8" y2="13" />
+                            <line x1="16" y1="17" x2="8" y2="17" />
+                        </svg></div>
+                    <span class="wf-v-name">Final Handoff Report</span>
+                    <div class="wf-v-badges">
+                        <span class="wf-v-badge"
+                            style="color: #ffb4a6; background: rgba(239, 68, 68, 0.2);">CRITICAL</span>
+                        <span class="wf-v-badge"
+                            style="color: #86efac; background: rgba(34, 197, 94, 0.2);">VERIFIED</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

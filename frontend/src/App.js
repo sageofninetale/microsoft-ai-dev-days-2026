@@ -200,8 +200,8 @@ function App() {
         // Stop all tracks
         stream.getTracks().forEach(track => track.stop());
 
-        // Add processing step
-        const duration = Math.floor(recordingTime);
+        // Add processing step — use ref for accurate duration (state has stale closure)
+        const duration = Math.floor((Date.now() - recordingStartRef.current) / 1000);
         addProcessingStep(`✅ Audio recorded (${duration}s)`, 'success');
 
         // Transcribe the audio
@@ -248,46 +248,39 @@ function App() {
     try {
       addProcessingStep('⏳ Transcribing audio with Azure Speech...', 'loading');
 
-      // Convert blob to base64
-      const reader = new FileReader();
-      reader.readAsDataURL(blob);
+      // Convert blob to base64 inside a real Promise so errors propagate correctly
+      const base64Audio = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = () => reject(new Error('FileReader failed to read audio blob'));
+        reader.readAsDataURL(blob);
+      });
 
-      reader.onloadend = async () => {
-        try {
-          const base64Audio = reader.result.split(',')[1];
+      // Send audio to backend for transcription (15-second hard timeout)
+      const response = await axios.post(`${API_BASE}/api/transcribe`, {
+        audio: base64Audio,
+        format: 'webm'
+      }, { timeout: 15000 });
 
-          // Send audio to backend for transcription
-          const response = await axios.post(`${API_BASE}/api/transcribe`, {
-            audio: base64Audio,
-            format: 'webm'
-          });
+      if (response.data.success && response.data.transcription) {
+        const transcribedText = response.data.transcription;
+        console.log('🎤 Azure Speech transcribed:', transcribedText);
 
-          if (response.data.success && response.data.transcription) {
-            const transcribedText = response.data.transcription;
-            console.log('🎤 Azure Speech transcribed:', transcribedText);
-
-            setTranscription(transcribedText);
-            addProcessingStep('✅ Transcribed by Azure Speech API', 'success');
-            addProcessingStep('📝 Transcription ready for submission', 'success');
-          } else {
-            throw new Error(response.data.message || 'Transcription failed');
-          }
-        } catch (apiError) {
-          console.error('❌ Transcription API error:', apiError);
-          addProcessingStep('❌ Transcription failed: ' + (apiError.response?.data?.detail || apiError.message), 'error');
-          setError('Transcription failed. Using sample text for demo.');
-
-          // Fallback: Set the actual spoken text as a sample (for testing)
-          const fallbackText = "Started heparin drip at 1000 units per hour at 11 AM via IV";
-          setTranscription(fallbackText);
-          addProcessingStep('⚠️ Using fallback transcription for demo', 'warning');
-        }
-      };
-
+        setTranscription(transcribedText);
+        addProcessingStep('✅ Transcribed by Azure Speech API', 'success');
+        addProcessingStep('📝 Transcription ready for submission', 'success');
+      } else {
+        throw new Error(response.data.message || 'Transcription failed');
+      }
     } catch (err) {
-      console.error('❌ Error transcribing audio:', err);
-      addProcessingStep('❌ Transcription failed: ' + err.message, 'error');
-      setError('Failed to transcribe audio: ' + err.message);
+      console.error('❌ Transcription API error:', err);
+      addProcessingStep('❌ Transcription failed: ' + (err.response?.data?.detail || err.message), 'error');
+      setError('Transcription failed. Using sample text for demo.');
+
+      // Fallback: Set the actual spoken text as a sample (for testing)
+      const fallbackText = "Started heparin drip at 1000 units per hour at 11 AM via IV";
+      setTranscription(fallbackText);
+      addProcessingStep('⚠️ Using fallback transcription for demo', 'warning');
     }
   };
 
@@ -577,7 +570,7 @@ function App() {
       {!draft && !shiftId && (
         <div className="fixed top-4 right-4 z-40 mr-64">
           <a
-            href="../index.html"
+            href="/app/website/"
             className="bg-white border border-slate-200 px-4 py-2 rounded-full shadow-md flex items-center gap-2 hover:bg-slate-50 transition-colors text-slate-700 font-semibold text-sm"
           >
             <span className="material-icons-outlined text-slate-600 text-lg">arrow_back</span>

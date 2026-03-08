@@ -4,6 +4,7 @@ Provides endpoints for shift management, patient updates, and draft generation.
 """
 
 from __future__ import annotations
+import asyncio
 import os
 from datetime import date, datetime
 from typing import Optional, List, Dict, Any
@@ -214,7 +215,9 @@ async def transcribe_audio(request: TranscribeAudioRequest):
             
             # Use UpdateAgent to transcribe the WAV file
             agent = get_update_agent()
-            transcription = agent._transcribe_audio(audio_path_to_use)
+            transcription = await asyncio.get_event_loop().run_in_executor(
+                None, agent._transcribe_audio, audio_path_to_use
+            )
             
             print(f"✅ Transcription: {transcription}")
             
@@ -483,7 +486,7 @@ async def generate_patient_draft(patient_id: str, request: GenerateDraftRequest)
         generator = get_draft_generator()
         
         # Generate draft
-        result = generator.generate_draft(
+        result = await generator.generate_draft(
             patient_id=patient_id,
             shift_id=request.shift_id
         )
@@ -549,6 +552,6 @@ if __name__ == "__main__":
         "backend.api:app",
         host="0.0.0.0",
         port=8000,
-        reload=True,
+        reload=False,
         log_level="info"
     )
