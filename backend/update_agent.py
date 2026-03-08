@@ -14,7 +14,12 @@ import json
 
 # Azure imports
 from openai import AzureOpenAI
-import azure.cognitiveservices.speech as speechsdk
+try:
+    import azure.cognitiveservices.speech as speechsdk
+    SPEECH_SDK_AVAILABLE = True
+except ImportError:
+    speechsdk = None
+    SPEECH_SDK_AVAILABLE = False
 
 # Local imports
 from models import PatientUpdate
@@ -56,7 +61,10 @@ class UpdateAgent:
         self.speech_key = os.getenv("AZURE_SPEECH_KEY")
         self.speech_region = os.getenv("AZURE_SPEECH_REGION")
         
-        if not all([self.speech_key, self.speech_region]):
+        if not SPEECH_SDK_AVAILABLE:
+            print("⚠️  Warning: azure-cognitiveservices-speech not installed. Audio transcription will not work.")
+            self.speech_config = None
+        elif not all([self.speech_key, self.speech_region]):
             print("⚠️  Warning: Azure Speech credentials not found. Audio transcription will not work.")
             self.speech_config = None
         else:
