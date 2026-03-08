@@ -6,10 +6,7 @@ pydantic==2.6.0
 # OpenAI / Azure OpenAI
 openai==1.12.0
 
-# HTTP client (required by supabase and openai)
-httpx==0.28.1
-
-# Database
+# Database (supabase 2.3.4 requires httpx>=0.24,<0.26; let pip resolve compatible version)
 supabase==2.3.4
 
 # Environment variable management
