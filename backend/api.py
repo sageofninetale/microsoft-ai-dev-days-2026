@@ -6,9 +6,22 @@ Provides endpoints for shift management, patient updates, and draft generation.
 from __future__ import annotations
 import asyncio
 import os
+import sys
+from pathlib import Path
 from datetime import date, datetime
 from typing import Optional, List, Dict, Any
 from dotenv import load_dotenv
+
+# Ensure 'backend' package is importable whether we run from repo root or from backend/ dir.
+# On Azure App Service, the app root is the backend/ folder itself, so we add its parent to
+# sys.path so that `from xxx import ...` still works throughout the codebase.
+_this_dir = Path(__file__).resolve().parent
+if _this_dir.name == "backend":
+    # Running from inside the backend directory (Azure) - add the parent so `backend` is a package
+    sys.path.insert(0, str(_this_dir.parent))
+# Also ensure the backend dir itself is on the path (for direct imports)
+if str(_this_dir) not in sys.path:
+    sys.path.insert(0, str(_this_dir))
 
 # FastAPI imports
 from fastapi import FastAPI, HTTPException, Body
@@ -17,11 +30,11 @@ from pydantic import BaseModel
 from contextlib import asynccontextmanager
 
 # Local imports - Agents
-from backend.update_agent import UpdateAgent
-from backend.draft_generator import DraftGenerator
+from update_agent import UpdateAgent
+from draft_generator import DraftGenerator
 
 # Local imports - Database
-from backend.database import (
+from database import (
     create_shift,
     get_active_shift,
     get_shift_by_id,
@@ -159,7 +172,7 @@ async def transcribe_audio(request: TranscribeAudioRequest):
         import tempfile
         import os
         import subprocess
-        from backend.update_agent import UpdateAgent
+        # UpdateAgent already imported at module level
         
         # Decode base64 audio
         audio_bytes = base64.b64decode(request.audio)

@@ -17,9 +17,9 @@ from openai import AzureOpenAI
 import azure.cognitiveservices.speech as speechsdk
 
 # Local imports
-from backend.models import PatientUpdate
-from backend.database import save_update, get_patient
-from backend.verification_agent import VerificationAgent
+from models import PatientUpdate
+from database import save_update, get_patient
+from verification_agent import VerificationAgent
 
 # Load environment variables
 load_dotenv()

@@ -11,7 +11,7 @@ from typing import Optional, List, Dict, Any
 from dotenv import load_dotenv
 from supabase import create_client, Client
 
-from backend.models import NurseShift, PatientUpdate, DraftHandoff, FinalHandoff
+from models import NurseShift, PatientUpdate, DraftHandoff, FinalHandoff
 
 # Load environment variables
 load_dotenv()

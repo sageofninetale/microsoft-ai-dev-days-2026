@@ -17,8 +17,8 @@ import json
 from openai import AzureOpenAI
 
 # Local imports
-from backend.models import DraftHandoff, PatientUpdate
-from backend.database import get_patient_updates, get_patient, save_draft
+from models import DraftHandoff, PatientUpdate
+from database import get_patient_updates, get_patient, save_draft
 
 # Load environment variables
 load_dotenv()

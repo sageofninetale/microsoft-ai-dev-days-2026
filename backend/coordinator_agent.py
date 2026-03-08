@@ -10,9 +10,9 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from backend.intake_agent import PatientIntakeAgent, IntakeAgentError, HandoffSummary
-from backend.verification_agent import VerificationAgent, VerificationAgentError, VerificationResult
-from backend.protocol_agent import ProtocolAgent, ProtocolAgentError, ProtocolResult
+from intake_agent import PatientIntakeAgent, IntakeAgentError, HandoffSummary
+from verification_agent import VerificationAgent, VerificationAgentError, VerificationResult
+from protocol_agent import ProtocolAgent, ProtocolAgentError, ProtocolResult
 
 
 __all__ = [
