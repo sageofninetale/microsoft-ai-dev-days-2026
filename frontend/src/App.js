@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import './App.css';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = 'https://cascadeai-backend-api.azurewebsites.net';
 
 // ===== INLINE HELPER COMPONENT =====
 function WaveformAnimation({ isRecording }) {
@@ -570,7 +570,7 @@ function App() {
       {!draft && !shiftId && (
         <div className="fixed top-4 right-4 z-40 mr-64">
           <a
-            href="/app/website/"
+            href="/website/"
             className="bg-white border border-slate-200 px-4 py-2 rounded-full shadow-md flex items-center gap-2 hover:bg-slate-50 transition-colors text-slate-700 font-semibold text-sm"
           >
             <span className="material-icons-outlined text-slate-600 text-lg">arrow_back</span>

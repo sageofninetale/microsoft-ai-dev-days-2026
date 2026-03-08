@@ -85,10 +85,11 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:3000", 
+        "http://localhost:3000",
         "http://127.0.0.1:3000",
         "http://localhost:8888",
-        "http://127.0.0.1:8888"
+        "http://127.0.0.1:8888",
+        "https://happy-sand-07c137903.6.azurestaticapps.net",
     ],
     allow_credentials=True,
     allow_methods=["*"],
