@@ -253,6 +253,28 @@ This document tracks enhancement ideas for CascadeAI to implement when time perm
   
   **Priority**: HIGH - Addresses critical gap in accountability loop
 
+### 🔒 Compliance & Legal
+- [ ] **Register with ICO (Information Commissioner's Office)** — £40/year, required for handling patient data in the UK
+- [ ] **Ensure full GDPR compliance for special category healthcare data** — privacy policy, data processing agreements, data retention policies
+- [ ] **Pursue HIPAA certification for US market expansion** — Business Associate Agreements (BAA) required for enterprise customers
+
+### 📋 Additional Feature Improvements
+- [ ] **MAR Chart (Medication Administration Record) integration** — auto generate MAR charts from verbal handoff input, legally required in UK care homes
+- [ ] **Multi patient shift support** — allow nurses to record handoffs for multiple patients in one session
+- [ ] **EHR/EMR direct integration** — connect with Epic, Cerner, and SystmOne for real hospital deployments
+- [ ] **Offline mode** — allow transcription and report generation without internet connection for rural or low connectivity settings
+
+### ⚡ Technical Improvements
+- [ ] **Migrate from Azure OpenAI to Groq LLaMA 3 70B** for faster processing and reduced costs
+- [ ] **Migrate from Azure Speech Service to Groq Whisper** for free tier speech transcription
+- [ ] **Migrate backend hosting from Azure App Service to Railway or Render** for cost efficiency
+- [ ] **Deploy frontend on Vercel** for improved performance and free tier hosting
+
+### 💼 Business Development
+- [ ] **Target UK private care homes as first paying customers**
+- [ ] **Conduct formal pilot with one care home group**
+- [ ] **Build case study from pilot** for investor and NHS conversations
+
 ### 🔒 Security & Performance
 - [ ] TBD (add more as we identify them)
 
