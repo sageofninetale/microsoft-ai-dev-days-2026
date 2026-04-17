@@ -5,6 +5,7 @@ Transcribes audio, extracts structured data, verifies against EMR, and saves to 
 
 from __future__ import annotations
 import os
+import re
 import uuid
 import concurrent.futures
 from datetime import datetime
@@ -67,6 +68,24 @@ class UpdateAgent:
             print(f"⚠️  Warning: Could not initialize VerificationAgent: {e}")
             self.verification_agent = None
     
+    def _normalize_clinical_text(self, text: str) -> str:
+        """Normalize spoken clinical shorthand into standard notation."""
+        # Fix split 3-digit numbers first: "1 20" → "120", "1 80" → "180"
+        text = re.sub(r'\b([1-3])\s+(\d{2})\b', r'\1\2', text)
+        # "120 by 80" → "120/80" (blood pressure)
+        text = re.sub(r'(\d{2,3})\s+[Bb]y\s+(\d{2,3})', r'\1/\2', text)
+        # "98 degree(s) Fahrenheit" → "98°F"
+        text = re.sub(r'(\d+(?:\.\d+)?)\s+degrees?\s+[Ff]ahrenheit', r'\1°F', text, flags=re.IGNORECASE)
+        # "36 degree(s) Celsius" → "36°C"
+        text = re.sub(r'(\d+(?:\.\d+)?)\s+degrees?\s+[Cc]elsius', r'\1°C', text, flags=re.IGNORECASE)
+        # "98 degree(s)" (no unit) → "98°"
+        text = re.sub(r'(\d+(?:\.\d+)?)\s+degrees?(?!\s*[FfCc])', r'\1°', text, flags=re.IGNORECASE)
+        # "98 percent" → "98%"
+        text = re.sub(r'(\d+)\s+[Pp]ercent', r'\1%', text)
+        # "beats per minute" → "bpm"
+        text = re.sub(r'beats\s+per\s+minute', 'bpm', text, flags=re.IGNORECASE)
+        return text
+
     def _transcribe_audio(self, audio_path: str) -> Optional[str]:
         """Transcribe audio using Deepgram Nova-2 Medical."""
         if not self.deepgram_api_key:
@@ -100,6 +119,7 @@ class UpdateAgent:
                 result["results"]["channels"][0]["alternatives"][0]["transcript"].strip()
             )
             if transcription:
+                transcription = self._normalize_clinical_text(transcription)
                 print(f"✅ Deepgram transcription: {len(transcription)} characters")
                 return transcription
 
