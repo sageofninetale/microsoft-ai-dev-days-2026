@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import './App.css';
 
-const API_BASE = 'https://cascadeai-backend-api.azurewebsites.net';
+const API_BASE = 'http://localhost:8000';
 
 // ===== INLINE HELPER COMPONENT =====
 function WaveformAnimation({ isRecording }) {
@@ -51,8 +51,10 @@ function App() {
   const [transcription, setTranscription] = useState('');
   const [processingSteps, setProcessingSteps] = useState([]);
   const [isEditingTranscription, setIsEditingTranscription] = useState(false);
+  const [tick, setTick] = useState(0);
   const timerIntervalRef = useRef(null);
   const recordingStartRef = useRef(null);
+  const tickIntervalRef = useRef(null);
 
   // Microphone permission state
   const [micPermission, setMicPermission] = useState('checking'); // 'granted', 'denied', 'checking'
@@ -79,12 +81,28 @@ function App() {
     }
   };
 
-  // Clean up timer on unmount
+  // Clean up timers on unmount
   useEffect(() => {
     return () => {
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+      if (tickIntervalRef.current) clearInterval(tickIntervalRef.current);
     };
   }, []);
+
+  // Tick every second while a loading step is active (drives elapsed time display)
+  useEffect(() => {
+    const hasLoading = processingSteps.some(s => s.status === 'loading');
+    if (hasLoading) {
+      if (!tickIntervalRef.current) {
+        tickIntervalRef.current = setInterval(() => setTick(t => t + 1), 1000);
+      }
+    } else {
+      if (tickIntervalRef.current) {
+        clearInterval(tickIntervalRef.current);
+        tickIntervalRef.current = null;
+      }
+    }
+  }, [processingSteps]);
 
   // ===== ALL FUNCTIONS (PRESERVED EXACTLY) =====
 
@@ -109,7 +127,6 @@ function App() {
     });
   };
 
-  // Fetch nurses on load
   useEffect(() => {
     fetchNurses();
   }, []);
@@ -244,9 +261,20 @@ function App() {
     setProcessingSteps(prev => [...prev, { message, status, timestamp: new Date().toISOString() }]);
   };
 
+  // Replace the last loading step with a new status (stops its timer)
+  const resolveLastLoadingStep = (message, status) => {
+    setProcessingSteps(prev => {
+      const lastLoadingIdx = [...prev].map((s, i) => ({ s, i })).filter(({ s }) => s.status === 'loading').pop()?.i;
+      if (lastLoadingIdx == null) return [...prev, { message, status, timestamp: new Date().toISOString() }];
+      const updated = [...prev];
+      updated[lastLoadingIdx] = { ...updated[lastLoadingIdx], message, status };
+      return updated;
+    });
+  };
+
   const transcribeAudio = async (blob) => {
     try {
-      addProcessingStep('⏳ Transcribing audio with Azure Speech...', 'loading');
+      addProcessingStep('⏳ Transcribing audio with Deepgram AI...', 'loading');
 
       // Convert blob to base64 inside a real Promise so errors propagate correctly
       const base64Audio = await new Promise((resolve, reject) => {
@@ -256,31 +284,27 @@ function App() {
         reader.readAsDataURL(blob);
       });
 
-      // Send audio to backend for transcription (15-second hard timeout)
+      // Send audio to backend for transcription (120-second timeout for Whisper API)
       const response = await axios.post(`${API_BASE}/api/transcribe`, {
         audio: base64Audio,
         format: 'webm'
-      }, { timeout: 15000 });
+      }, { timeout: 120000 });
 
       if (response.data.success && response.data.transcription) {
         const transcribedText = response.data.transcription;
-        console.log('🎤 Azure Speech transcribed:', transcribedText);
+        console.log('🎤 Deepgram transcribed:', transcribedText);
 
         setTranscription(transcribedText);
-        addProcessingStep('✅ Transcribed by Azure Speech API', 'success');
+        resolveLastLoadingStep('✅ Transcribed successfully', 'success');
         addProcessingStep('📝 Transcription ready for submission', 'success');
       } else {
         throw new Error(response.data.message || 'Transcription failed');
       }
     } catch (err) {
       console.error('❌ Transcription API error:', err);
-      addProcessingStep('❌ Transcription failed: ' + (err.response?.data?.detail || err.message), 'error');
-      setError('Transcription failed. Using sample text for demo.');
-
-      // Fallback: Set the actual spoken text as a sample (for testing)
-      const fallbackText = "Started heparin drip at 1000 units per hour at 11 AM via IV";
-      setTranscription(fallbackText);
-      addProcessingStep('⚠️ Using fallback transcription for demo', 'warning');
+      resolveLastLoadingStep('❌ Transcription failed: ' + (err.response?.data?.detail || err.message), 'error');
+      setError('Transcription failed. Please try again or type your update manually.');
+      setTranscription('');
     }
   };
 
@@ -597,7 +621,7 @@ function App() {
           {/* Hero heading */}
           <div className="max-w-3xl w-full text-center mb-12">
             <p className="text-xs font-bold tracking-[0.2em] uppercase text-forest-green mb-4">
-              Powered by Azure AI
+              Powered by Deepgram AI
             </p>
             <h1 className="text-5xl lg:text-7xl font-display text-slate-900 leading-tight mb-4">
               Ready for <span className="italic">your shift?</span>
@@ -841,9 +865,12 @@ function App() {
                           warning: 'bg-yellow-50 border-l-4 border-yellow-500 text-yellow-800',
                           info: 'bg-slate-50 border-l-4 border-slate-400 text-slate-700',
                         };
+                        const elapsed = step.status === 'loading'
+                          ? Math.floor((Date.now() - new Date(step.timestamp)) / 1000)
+                          : null;
                         return (
                           <li key={index} className={`px-4 py-2 rounded-r-lg text-sm font-mono ${stepColors[step.status] || stepColors.info}`}>
-                            {step.message}
+                            {step.message}{elapsed !== null ? ` (${elapsed}s...)` : ''}
                           </li>
                         );
                       })}

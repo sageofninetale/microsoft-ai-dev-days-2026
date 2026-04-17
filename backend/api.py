@@ -64,9 +64,9 @@ async def lifespan(app: FastAPI):
     print(f"✅ API ready at: http://localhost:8000")
     print(f"📚 Docs available at: http://localhost:8000/docs")
     print("="*60 + "\n")
-    
+
     yield
-    
+
     # Shutdown
     print("\n" + "="*60)
     print("💧 CascadeAI API - Shutting Down")
@@ -163,35 +163,37 @@ async def health_check():
     }
 
 
+
 @app.post("/api/transcribe")
 async def transcribe_audio(request: TranscribeAudioRequest):
-    """Transcribe audio using Azure Speech API"""
+    """Transcribe audio using VibeVoice-ASR via Modal"""
     print(f"🎤 Transcribing audio (format: {request.format})...")
-    
+
     try:
         import base64
         import tempfile
         import os
         import subprocess
         # UpdateAgent already imported at module level
-        
-        # Decode base64 audio
+
+        # Decode base64 audio — keep bytes in memory for Whisper fallback
         audio_bytes = base64.b64decode(request.audio)
-        
+
         # Save to temporary file
         with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{request.format}') as temp_audio:
             temp_audio.write(audio_bytes)
             temp_audio_path = temp_audio.name
-        
+
         wav_path = None
+        transcription = None
         try:
-            # Convert to WAV if not already WAV
+            # Convert to WAV if not already WAV (needed for Azure Speech SDK)
+            audio_path_to_use = None
             if request.format.lower() != 'wav':
                 wav_path = temp_audio_path.replace(f'.{request.format}', '.wav')
-                
+
                 print(f"🔄 Converting {request.format} to WAV...")
-                
-                # Try using ffmpeg to convert
+
                 try:
                     result = subprocess.run(
                         ['ffmpeg', '-i', temp_audio_path, '-ar', '16000', '-ac', '1', '-f', 'wav', wav_path],
@@ -199,45 +201,66 @@ async def transcribe_audio(request: TranscribeAudioRequest):
                         text=True,
                         timeout=30
                     )
-                    
+
                     if result.returncode != 0:
                         print(f"⚠️ ffmpeg error: {result.stderr}")
-                        raise Exception(f"ffmpeg conversion failed: {result.stderr}")
-                    
-                    print(f"✅ Converted to WAV: {wav_path}")
-                    audio_path_to_use = wav_path
-                    
-                except FileNotFoundError:
-                    print("⚠️ ffmpeg not found, trying pydub...")
-                    
-                    # Fallback to pydub
-                    try:
-                        from pydub import AudioSegment
-                        
-                        audio = AudioSegment.from_file(temp_audio_path, format=request.format)
-                        audio = audio.set_frame_rate(16000).set_channels(1)
-                        audio.export(wav_path, format='wav')
-                        
-                        print(f"✅ Converted to WAV using pydub: {wav_path}")
+                    else:
+                        print(f"✅ Converted to WAV: {wav_path}")
                         audio_path_to_use = wav_path
-                        
-                    except ImportError:
-                        print("❌ Neither ffmpeg nor pydub available")
-                        raise Exception("Audio conversion failed: ffmpeg and pydub not available. Install ffmpeg or pydub.")
+
+                except FileNotFoundError:
+                    print("⚠️ ffmpeg not found, trying PyAV (built-in FFmpeg bindings)...")
+
+                    try:
+                        import av
+                        import io as _io
+                        import struct
+
+                        input_buf = _io.BytesIO(audio_bytes)
+                        pcm_chunks = []
+
+                        with av.open(input_buf) as container:
+                            if not container.streams.audio:
+                                raise ValueError("No audio streams found in container")
+                            audio_stream = container.streams.audio[0]
+                            resampler = av.AudioResampler(format='s16', layout='mono', rate=16000)
+                            for frame in container.decode(audio_stream):
+                                for rf in resampler.resample(frame):
+                                    pcm_chunks.append(bytes(rf.planes[0]))
+                            for rf in resampler.resample(None):  # flush
+                                pcm_chunks.append(bytes(rf.planes[0]))
+
+                        pcm_data = b''.join(pcm_chunks)
+                        sr, ch, bits = 16000, 1, 16
+                        wav_header = struct.pack(
+                            '<4sI4s4sIHHIIHH4sI',
+                            b'RIFF', 36 + len(pcm_data), b'WAVE',
+                            b'fmt ', 16, 1, ch, sr, sr * ch * bits // 8, ch * bits // 8, bits,
+                            b'data', len(pcm_data)
+                        )
+                        with open(wav_path, 'wb') as f:
+                            f.write(wav_header)
+                            f.write(pcm_data)
+
+                        audio_path_to_use = wav_path
+                        print(f"✅ Converted to WAV using PyAV: {wav_path}")
+
+                    except Exception as av_err:
+                        print(f"⚠️ PyAV conversion failed: {av_err} — will try Whisper directly")
             else:
                 audio_path_to_use = temp_audio_path
-            
-            # Use UpdateAgent to transcribe the WAV file
-            agent = get_update_agent()
-            transcription = await asyncio.get_event_loop().run_in_executor(
-                None, agent._transcribe_audio, audio_path_to_use
-            )
-            
-            print(f"✅ Transcription: {transcription}")
-            
+
+            if audio_path_to_use:
+                agent = get_update_agent()
+                transcription = await asyncio.get_event_loop().run_in_executor(
+                    None, agent._transcribe_audio, audio_path_to_use
+                )
+                if not transcription:
+                    print("⚠️ Deepgram returned no transcription")
+
             if not transcription or transcription.strip() == "":
                 raise Exception("No speech detected in audio")
-            
+
             return {
                 "success": True,
                 "transcription": transcription,
@@ -249,7 +272,7 @@ async def transcribe_audio(request: TranscribeAudioRequest):
                 os.unlink(temp_audio_path)
             if wav_path and os.path.exists(wav_path):
                 os.unlink(wav_path)
-        
+
     except Exception as e:
         import traceback
         print(f"❌ Transcription error: {e}")

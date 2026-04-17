@@ -4,7 +4,7 @@ uvicorn[standard]==0.27.0
 pydantic==2.6.0
 
 # OpenAI / Azure OpenAI
-openai==1.12.0
+openai>=1.52.0
 
 # Database — unpinned so pip resolves compatible gotrue/httpx versions together
 supabase
@@ -12,5 +12,8 @@ supabase
 # Environment variable management
 python-dotenv==1.0.1
 
-# Azure Speech SDK (large binary, only needed for audio transcription)
-azure-cognitiveservices-speech==1.35.0
+# Deepgram speech-to-text — HTTP client for Nova-2 Medical API
+requests
+
+# PyAV: FFmpeg Python bindings — includes compiled codecs (webm/opus decode)
+av

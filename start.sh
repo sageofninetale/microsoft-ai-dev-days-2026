@@ -15,7 +15,7 @@ sleep 2
 
 echo ""
 echo "🚀 Starting backend on port 8000..."
-PYTHONPATH="$PROJECT_DIR" python backend/main.py > /tmp/cascade-backend.log 2>&1 &
+PYTHONPATH="$PROJECT_DIR" /usr/local/bin/python3 -m uvicorn backend.api:app --host 0.0.0.0 --port 8000 > /tmp/cascade-backend.log 2>&1 &
 BACKEND_PID=$!
 disown $BACKEND_PID
 echo "   Backend PID: $BACKEND_PID (disowned - won't be suspended)"

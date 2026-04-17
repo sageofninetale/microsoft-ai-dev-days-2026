@@ -14,12 +14,7 @@ import json
 
 # Azure imports
 from openai import AzureOpenAI
-try:
-    import azure.cognitiveservices.speech as speechsdk
-    SPEECH_SDK_AVAILABLE = True
-except ImportError:
-    speechsdk = None
-    SPEECH_SDK_AVAILABLE = False
+import requests
 
 # Local imports
 from models import PatientUpdate
@@ -57,21 +52,12 @@ class UpdateAgent:
             api_version="2024-08-01-preview"
         )
         
-        # Azure Speech setup
-        self.speech_key = os.getenv("AZURE_SPEECH_KEY")
-        self.speech_region = os.getenv("AZURE_SPEECH_REGION")
-        
-        if not SPEECH_SDK_AVAILABLE:
-            print("⚠️  Warning: azure-cognitiveservices-speech not installed. Audio transcription will not work.")
-            self.speech_config = None
-        elif not all([self.speech_key, self.speech_region]):
-            print("⚠️  Warning: Azure Speech credentials not found. Audio transcription will not work.")
-            self.speech_config = None
+        # Deepgram Speech-to-Text
+        self.deepgram_api_key = os.getenv("DEEPGRAM_API_KEY")
+        if not self.deepgram_api_key:
+            print("⚠️  Warning: DEEPGRAM_API_KEY not set. Audio transcription will not work.")
         else:
-            self.speech_config = speechsdk.SpeechConfig(
-                subscription=self.speech_key,
-                region=self.speech_region
-            )
+            print(f"✅ Deepgram Nova-2 Medical configured.")
         
         # Initialize verification agent
         try:
@@ -82,53 +68,46 @@ class UpdateAgent:
             self.verification_agent = None
     
     def _transcribe_audio(self, audio_path: str) -> Optional[str]:
-        """
-        Transcribe audio file using Azure Speech API.
-        
-        Args:
-            audio_path: Path to audio file
-        
-        Returns:
-            Transcribed text or None on error
-        """
-        if not self.speech_config:
-            print("❌ Speech API not configured")
+        """Transcribe audio using Deepgram Nova-2 Medical."""
+        if not self.deepgram_api_key:
+            print("❌ DEEPGRAM_API_KEY not configured")
             return None
-        
+
         try:
-            audio_config = speechsdk.AudioConfig(filename=audio_path)
-            speech_recognizer = speechsdk.SpeechRecognizer(
-                speech_config=self.speech_config,
-                audio_config=audio_config
+            with open(audio_path, "rb") as f:
+                audio_bytes = f.read()
+
+            print(f"🎤 Sending audio to Deepgram Nova-2 Medical...")
+            response = requests.post(
+                "https://api.deepgram.com/v1/listen",
+                headers={
+                    "Authorization": f"Token {self.deepgram_api_key}",
+                    "Content-Type": "audio/wav",
+                },
+                params={
+                    "model": "nova-2-medical",
+                    "smart_format": "true",
+                    "numerals": "true",
+                    "language": "en",
+                },
+                data=audio_bytes,
+                timeout=30,
             )
-            
-            print(f"🎤 Transcribing audio: {audio_path}")
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                future = executor.submit(speech_recognizer.recognize_once)
-                try:
-                    result = future.result(timeout=10)
-                except concurrent.futures.TimeoutError:
-                    print("❌ Speech recognition timed out after 10 seconds")
-                    return None
-            
-            if result.reason == speechsdk.ResultReason.RecognizedSpeech:
-                print(f"✅ Transcription complete: {len(result.text)} characters")
-                return result.text
-            elif result.reason == speechsdk.ResultReason.NoMatch:
-                print("❌ No speech could be recognized")
-                return None
-            elif result.reason == speechsdk.ResultReason.Canceled:
-                cancellation = result.cancellation_details
-                print(f"❌ Speech recognition canceled: {cancellation.reason}")
-                if cancellation.reason == speechsdk.CancellationReason.Error:
-                    print(f"   Error details: {cancellation.error_details}")
-                return None
-            else:
-                print(f"❌ Unexpected result reason: {result.reason}")
-                return None
-                
+            response.raise_for_status()
+            result = response.json()
+
+            transcription = (
+                result["results"]["channels"][0]["alternatives"][0]["transcript"].strip()
+            )
+            if transcription:
+                print(f"✅ Deepgram transcription: {len(transcription)} characters")
+                return transcription
+
+            print("❌ Deepgram returned empty transcription")
+            return None
+
         except Exception as e:
-            print(f"❌ Error transcribing audio: {e}")
+            print(f"❌ Error calling Deepgram: {e}")
             return None
     
     def _extract_update_data(self, transcription: str, update_type: str) -> Dict[str, Any]:
