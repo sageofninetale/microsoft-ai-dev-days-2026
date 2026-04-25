@@ -7,14 +7,12 @@ from __future__ import annotations
 import os
 import uuid
 import asyncio
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 from dotenv import load_dotenv
 import json
 
-# Azure imports
-from openai import AzureOpenAI
+from hf_client import get_hf_client, HF_MODEL
 
 # Local imports
 from models import DraftHandoff, PatientUpdate
@@ -36,22 +34,9 @@ class DraftGenerator:
     """
     
     def __init__(self):
-        """Initialize DraftGenerator with Azure OpenAI client"""
-        # Azure OpenAI setup
-        self.openai_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
-        self.openai_key = os.getenv("AZURE_OPENAI_KEY")
-        self.deployment = os.getenv("AZURE_OPENAI_DEPLOYMENT")
-        
-        if not all([self.openai_endpoint, self.openai_key, self.deployment]):
-            raise DraftGeneratorError("Missing Azure OpenAI credentials in environment variables")
-        
-        self.openai_client = AzureOpenAI(
-            azure_endpoint=self.openai_endpoint,
-            api_key=self.openai_key,
-            api_version="2024-08-01-preview"
-        )
-        
-        print("✅ DraftGenerator initialized")
+        """Initialize DraftGenerator with HF Llama 3.1"""
+        self.hf_client = get_hf_client()
+        print("✅ DraftGenerator initialized with HF Llama 3.1")
     
     def _organize_updates(self, updates: List[PatientUpdate]) -> Dict[str, Any]:
         """
@@ -109,15 +94,14 @@ class DraftGenerator:
         Returns:
             List of timeline events with severity markers
         """
-        def _sync_timeline_call():
-            import time
-            try:
-                start = time.time()
-                updates_text = ""
-                for update_info in organized_updates["all_chronological"]:
-                    updates_text += f"\n• {update_info['timestamp']} - {update_info['transcription'][:200]}"
-                
-                system_prompt = """You are a clinical timeline analyzer. Generate a chronological timeline with severity classification.
+        import time
+        try:
+            start = time.time()
+            updates_text = ""
+            for update_info in organized_updates["all_chronological"]:
+                updates_text += f"\n• {update_info['timestamp']} - {update_info['transcription'][:200]}"
+
+            system_prompt = """You are a clinical timeline analyzer. Generate a chronological timeline with severity classification.
 
 SEVERITY LEVELS:
 🔴 RED (CRITICAL): SpO2 <90%, HR >120/<50, SBP >180/<90, Temp >103°F, active bleeding, chest pain
@@ -139,7 +123,7 @@ Return a JSON object with a single key "timeline" whose value is the array:
   ]
 }"""
 
-                user_prompt = f"""Patient: {patient_data.get('name', 'Unknown')} (Age {patient_data.get('age', '?')})
+            user_prompt = f"""Patient: {patient_data.get('name', 'Unknown')} (Age {patient_data.get('age', '?')})
 Allergies: {', '.join(patient_data.get('allergies', [])) if patient_data.get('allergies') else 'None'}
 
 UPDATES:
@@ -147,33 +131,30 @@ UPDATES:
 
 Generate timeline with severity classification."""
 
-                response = self.openai_client.chat.completions.create(
-                    model=self.deployment,
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt}
-                    ],
-                    response_format={"type": "json_object"}
-                )
-                
-                elapsed = time.time() - start
-                print(f"   📅 Timeline call: {elapsed:.2f}s")
-                
-                result = json.loads(response.choices[0].message.content)
-                timeline = result.get("timeline")
-                if timeline is None:
-                    timeline = next((v for v in result.values() if isinstance(v, list)), [])
-                return timeline
-                
-            except Exception as e:
-                print(f"⚠️ Timeline generation error: {e}")
-                return [{"time": u['timestamp'], "event": u['transcription'][:100], "severity": "GRAY", "icon": "⚪"} 
-                       for u in organized_updates["all_chronological"]]
-        
-        # Run in thread pool to avoid blocking
-        loop = asyncio.get_event_loop()
-        with ThreadPoolExecutor() as executor:
-            return await loop.run_in_executor(executor, _sync_timeline_call)
+            response = self.hf_client.chat.completions.create(
+                model=HF_MODEL,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=0.0,
+                max_tokens=4096,
+                response_format={"type": "json_object"},
+            )
+
+            elapsed = time.time() - start
+            print(f"   📅 Timeline call: {elapsed:.2f}s")
+
+            result = json.loads(response.choices[0].message.content)
+            timeline = result.get("timeline")
+            if timeline is None:
+                timeline = next((v for v in result.values() if isinstance(v, list)), [])
+            return timeline
+
+        except Exception as e:
+            print(f"⚠️ Timeline generation error: {e}")
+            return [{"time": u['timestamp'], "event": u['transcription'][:100], "severity": "GRAY", "icon": "⚪"}
+                    for u in organized_updates["all_chronological"]]
     
     async def _generate_clinical_status_async(
         self,
@@ -273,19 +254,17 @@ Analyze current clinical status, medications, vitals, safety alerts, and pending
 
             import time
             start = time.time()
-            loop = asyncio.get_event_loop()
-            response = await loop.run_in_executor(
-                None,
-                lambda: self.openai_client.chat.completions.create(
-                    model=self.deployment,
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt}
-                    ],
-                    response_format={"type": "json_object"}
-                )
+            response = self.hf_client.chat.completions.create(
+                model=HF_MODEL,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=0.0,
+                max_tokens=4096,
+                response_format={"type": "json_object"},
             )
-            
+
             elapsed = time.time() - start
             print(f"   🏥 Clinical status call: {elapsed:.2f}s")
             
@@ -360,19 +339,17 @@ Generate 150-250 word narrative handoff summary."""
 
             import time
             start = time.time()
-            loop = asyncio.get_event_loop()
-            response = await loop.run_in_executor(
-                None,
-                lambda: self.openai_client.chat.completions.create(
-                    model=self.deployment,
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt}
-                    ],
-                    response_format={"type": "json_object"}
-                )
+            response = self.hf_client.chat.completions.create(
+                model=HF_MODEL,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=0.0,
+                max_tokens=4096,
+                response_format={"type": "json_object"},
             )
-            
+
             elapsed = time.time() - start
             print(f"   📝 Narrative call: {elapsed:.2f}s")
             
@@ -405,15 +382,13 @@ Generate 150-250 word narrative handoff summary."""
             print(f"🤖 Generating AI-powered handoff summary (parallel mode)...")
             start_time = time.time()
             
-            # Run 3 OpenAI calls in parallel for 60-70% speedup
-            timeline, clinical_data, narrative = await asyncio.gather(
-                self._generate_timeline_async(patient_data, organized_updates),
-                self._generate_clinical_status_async(patient_data, organized_updates),
-                self._generate_narrative_async(patient_data, organized_updates, update_count)
-            )
-            
+            # Sequential for HF free-tier rate limits — restore concurrent.futures when on Pro
+            timeline = await self._generate_timeline_async(patient_data, organized_updates)
+            clinical_data = await self._generate_clinical_status_async(patient_data, organized_updates)
+            narrative = await self._generate_narrative_async(patient_data, organized_updates, update_count)
+
             elapsed = time.time() - start_time
-            print(f"⏱️  Parallel API calls completed in {elapsed:.2f}s")
+            print(f"⏱️  Sequential API calls completed in {elapsed:.2f}s")
             
             # Merge results into final structure
             summary = {

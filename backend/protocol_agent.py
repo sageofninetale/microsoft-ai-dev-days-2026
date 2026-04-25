@@ -10,6 +10,8 @@ import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
+from hf_client import get_hf_client, HF_MODEL
+
 
 __all__ = [
     "ProtocolAgentError",
@@ -84,31 +86,11 @@ def _require_module(module: str, package_hint: str):
 class ProtocolAgent:
     """Checks clinical protocol compliance for patient care."""
 
-    def __init__(
-        self,
-        azure_openai_endpoint: Optional[str] = None,
-        azure_openai_key: Optional[str] = None,
-        azure_openai_deployment: Optional[str] = None,
-        azure_openai_api_version: Optional[str] = None,
-    ) -> None:
-        self._openai = _require_module("openai", "openai")
-
-        # Azure OpenAI configuration
-        self._aoai_endpoint = azure_openai_endpoint or _env("AZURE_OPENAI_ENDPOINT")
-        self._aoai_key = azure_openai_key or _env("AZURE_OPENAI_KEY")
-        self._aoai_deployment = azure_openai_deployment or _env("AZURE_OPENAI_DEPLOYMENT")
-        self._aoai_api_version = azure_openai_api_version or os.getenv(
-            "AZURE_OPENAI_API_VERSION", "2024-02-15-preview"
-        )
-
-        self._aoai_client = self._openai.AzureOpenAI(
-            api_key=self._aoai_key,
-            azure_endpoint=self._aoai_endpoint,
-            api_version=self._aoai_api_version,
-        )
+    def __init__(self) -> None:
+        self._hf_client = get_hf_client()
 
     def _generate_reasoning(self, protocol_context: Dict[str, Any]) -> str:
-        """Use Azure OpenAI to generate intelligent clinical reasoning for a protocol finding."""
+        """Use LLM to generate intelligent clinical reasoning for a protocol finding."""
         messages = [
             {
                 "role": "system",
@@ -125,19 +107,20 @@ class ProtocolAgent:
         ]
 
         try:
-            response = self._aoai_client.chat.completions.create(
-                model=self._aoai_deployment,
+            response = self._hf_client.chat.completions.create(
+                model=HF_MODEL,
                 messages=messages,
-                max_completion_tokens=120,
+                temperature=0.0,
+                max_tokens=4096,
             )
-            
+
             content = response.choices[0].message.content
             return content.strip() if content else "No reasoning available."
         except Exception as exc:
             return f"Unable to generate reasoning: {str(exc)}"
 
     def _generate_recommendation(self, protocol_context: Dict[str, Any]) -> str:
-        """Use Azure OpenAI to generate actionable recommendation."""
+        """Use LLM to generate actionable recommendation."""
         messages = [
             {
                 "role": "system",
@@ -154,12 +137,13 @@ class ProtocolAgent:
         ]
 
         try:
-            response = self._aoai_client.chat.completions.create(
-                model=self._aoai_deployment,
+            response = self._hf_client.chat.completions.create(
+                model=HF_MODEL,
                 messages=messages,
-                max_completion_tokens=80,
+                temperature=0.0,
+                max_tokens=4096,
             )
-            
+
             content = response.choices[0].message.content
             return content.strip() if content else "No recommendation available."
         except Exception as exc:

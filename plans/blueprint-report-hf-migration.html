@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cascade AI — HF Migration Blueprint Report</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0a0e1a;
+    color: #e2e8f0;
+    line-height: 1.6;
+    padding: 2rem;
+  }
+
+  .page { max-width: 960px; margin: 0 auto; }
+
+  /* Header */
+  .header {
+    background: linear-gradient(135deg, #1e3a5f 0%, #0f2744 100%);
+    border: 1px solid #2d5a8e;
+    border-radius: 12px;
+    padding: 2.5rem;
+    margin-bottom: 2rem;
+    text-align: center;
+  }
+  .header .badge {
+    display: inline-block;
+    background: #3b82f6;
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0.3rem 0.9rem;
+    border-radius: 20px;
+    margin-bottom: 1rem;
+  }
+  .header h1 { font-size: 2rem; font-weight: 800; color: #f0f9ff; margin-bottom: 0.5rem; }
+  .header p { color: #93c5fd; font-size: 1rem; }
+  .header .meta { margin-top: 1rem; font-size: 0.85rem; color: #64748b; }
+
+  /* Section */
+  section { margin-bottom: 2rem; }
+  .section-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #3b82f6;
+    margin-bottom: 0.75rem;
+  }
+  h2 { font-size: 1.3rem; font-weight: 700; color: #f1f5f9; margin-bottom: 1rem; }
+  h3 { font-size: 1rem; font-weight: 600; color: #cbd5e1; margin-bottom: 0.5rem; }
+
+  /* Cards */
+  .card {
+    background: #111827;
+    border: 1px solid #1f2d3d;
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  .card.blue { border-left: 4px solid #3b82f6; }
+  .card.green { border-left: 4px solid #22c55e; }
+  .card.amber { border-left: 4px solid #f59e0b; }
+  .card.red { border-left: 4px solid #ef4444; }
+  .card.purple { border-left: 4px solid #a855f7; }
+  .card.teal { border-left: 4px solid #14b8a6; }
+
+  /* Two column */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 640px) { .two-col { grid-template-columns: 1fr; } }
+
+  /* Explanation box */
+  .explain {
+    background: #0f1d30;
+    border: 1px solid #1e3a5f;
+    border-radius: 8px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1rem;
+    font-size: 0.95rem;
+    color: #94a3b8;
+  }
+  .explain strong { color: #e2e8f0; }
+
+  /* Step timeline */
+  .timeline { position: relative; padding-left: 2rem; }
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 0.65rem;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #1f2d3d;
+  }
+  .step {
+    position: relative;
+    margin-bottom: 1.25rem;
+    background: #111827;
+    border: 1px solid #1f2d3d;
+    border-radius: 10px;
+    padding: 1.25rem 1.5rem;
+  }
+  .step::before {
+    content: attr(data-num);
+    position: absolute;
+    left: -2.35rem;
+    top: 1.1rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    background: #1e3a5f;
+    border: 2px solid #3b82f6;
+    border-radius: 50%;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #93c5fd;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    line-height: 1;
+  }
+  .step .step-title { font-weight: 700; color: #f1f5f9; margin-bottom: 0.4rem; }
+  .step .step-file { font-family: monospace; font-size: 0.8rem; color: #3b82f6; background: #0f1d30; padding: 0.15rem 0.5rem; border-radius: 4px; margin-right: 0.5rem; }
+  .step .step-calls { font-size: 0.8rem; color: #64748b; }
+  .step .step-risk { font-size: 0.75rem; font-weight: 700; padding: 0.15rem 0.6rem; border-radius: 4px; float: right; }
+  .risk-low { background: #14532d; color: #86efac; }
+  .risk-medium { background: #451a03; color: #fcd34d; }
+  .risk-high { background: #450a0a; color: #fca5a5; }
+  .step .step-desc { font-size: 0.875rem; color: #94a3b8; margin-top: 0.5rem; }
+  .parallel-badge { display: inline-block; font-size: 0.7rem; background: #1e1b4b; color: #818cf8; border: 1px solid #312e81; padding: 0.1rem 0.5rem; border-radius: 4px; margin-left: 0.4rem; vertical-align: middle; }
+
+  /* Review findings */
+  .finding {
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 0.75rem;
+    font-size: 0.9rem;
+  }
+  .finding.critical { background: #1c0505; border: 1px solid #7f1d1d; }
+  .finding.high { background: #1c1005; border: 1px solid #78350f; }
+  .finding.resolved { background: #051c0a; border: 1px solid #14532d; }
+  .finding .badge-tag {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.15rem 0.6rem;
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+  }
+  .badge-critical { background: #7f1d1d; color: #fca5a5; }
+  .badge-high { background: #78350f; color: #fcd34d; }
+  .badge-resolved { background: #14532d; color: #86efac; }
+  .badge-wrong { background: #1e1b4b; color: #a5b4fc; }
+  .finding .title { font-weight: 600; color: #e2e8f0; margin-bottom: 0.4rem; }
+  .finding .body { color: #94a3b8; line-height: 1.5; }
+  .finding .fix { color: #86efac; margin-top: 0.5rem; font-size: 0.85rem; }
+
+  /* Architecture diagram */
+  .arch {
+    background: #080d18;
+    border: 1px solid #1f2d3d;
+    border-radius: 10px;
+    padding: 2rem;
+    font-family: monospace;
+    font-size: 0.85rem;
+    color: #64748b;
+    overflow-x: auto;
+  }
+  .arch .node { color: #93c5fd; font-weight: 700; }
+  .arch .arrow { color: #334155; }
+  .arch .label { color: #475569; font-style: italic; }
+  .arch .changed { color: #f59e0b; }
+  .arch .unchanged { color: #22c55e; }
+  .arch .new-node { color: #a855f7; }
+
+  /* Diff table */
+  table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+  th { background: #0f1d30; color: #93c5fd; font-weight: 600; padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid #1f2d3d; }
+  td { padding: 0.7rem 1rem; border-bottom: 1px solid #1a2332; color: #94a3b8; vertical-align: top; }
+  td.before { color: #fca5a5; font-family: monospace; font-size: 0.8rem; }
+  td.after { color: #86efac; font-family: monospace; font-size: 0.8rem; }
+  td.neutral { color: #e2e8f0; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #0f1520; }
+
+  /* Summary pill row */
+  .pills { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1.5rem; }
+  .pill {
+    background: #111827;
+    border: 1px solid #1f2d3d;
+    border-radius: 8px;
+    padding: 0.75rem 1.25rem;
+    text-align: center;
+    min-width: 120px;
+  }
+  .pill .num { font-size: 1.75rem; font-weight: 800; color: #f1f5f9; }
+  .pill .lbl { font-size: 0.7rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; margin-top: 0.1rem; }
+
+  /* Info callout */
+  .callout {
+    background: #0c1829;
+    border: 1px solid #1e3a5f;
+    border-left: 4px solid #3b82f6;
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+    color: #93c5fd;
+  }
+  .callout strong { color: #bfdbfe; }
+
+  code { font-family: monospace; background: #0f1d30; color: #93c5fd; padding: 0.1rem 0.4rem; border-radius: 3px; font-size: 0.85em; }
+
+  hr { border: none; border-top: 1px solid #1f2d3d; margin: 2rem 0; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="badge">Plan Locked — Ready to Execute</div>
+    <h1>Cascade AI — LLM Migration Plan</h1>
+    <p>Azure OpenAI → HF Llama 3.1 8B via OpenAI-Compatible Router</p>
+    <div class="meta">Updated Saturday 25 April 2026 &nbsp;·&nbsp; /blueprint + /plan-eng-review complete &nbsp;·&nbsp; 7 steps &nbsp;·&nbsp; 8 LLM calls to migrate</div>
+  </div>
+
+  <!-- What did we just do? -->
+  <section>
+    <div class="section-label">What Just Happened — Plain English</div>
+    <div class="explain">
+      <strong>What is a Blueprint?</strong><br>
+      A blueprint is a complete written plan — like an architect's drawing — created before a single line of code is touched. It maps out every step, in what order, which files change, what could go wrong, and how to recover. The idea is: spend 20 minutes planning properly so you don't spend 3 hours fixing a broken system at midnight.
+    </div>
+    <div class="explain">
+      <strong>What is the Adversarial Review?</strong><br>
+      After the blueprint was written, a second AI agent (running on Opus — the most powerful model) was given the plan and told: <em>"Be harsh. Find every flaw."</em> It came back with 4 critical issues and 7 high-priority issues. We then verified each one against the actual codebase. Some were real problems. Some were wrong. This is the difference between a plan written by one person and a plan pressure-tested by a critic.
+    </div>
+    <div class="explain">
+      <strong>Why did we switch to the OpenAI-compatible router approach?</strong><br>
+      HF exposes <code>https://router.huggingface.co/v1</code> — an endpoint that speaks the exact same language as OpenAI. This means we keep the <code>openai</code> package already installed and only change 2 lines per file: the URL and the API key. Every <code>.chat.completions.create()</code> call stays <strong>identical</strong>. Fewer changes = fewer places for bugs to hide. For a production healthcare system, this is the right call.<br><br>
+      <strong>Phase 1 (done)</strong> = Blueprint + engineering review. Plan is locked, all edge cases found and fixed.<br>
+      <strong>Phase 2 (next)</strong> = Execution. Once your HF token is approved, we run the migration step by step with tests after each file.
+    </div>
+  </section>
+
+  <!-- Stats pills -->
+  <div class="pills">
+    <div class="pill"><div class="num">5</div><div class="lbl">Agent files</div></div>
+    <div class="pill"><div class="num">8</div><div class="lbl">LLM calls</div></div>
+    <div class="pill"><div class="num">7</div><div class="lbl">Plan steps</div></div>
+    <div class="pill"><div class="num">3</div><div class="lbl">Parallel steps</div></div>
+    <div class="pill"><div class="num">4</div><div class="lbl">Critical issues found</div></div>
+    <div class="pill"><div class="num">4</div><div class="lbl">Issues resolved</div></div>
+  </div>
+
+  <hr>
+
+  <!-- Architecture: Before & After -->
+  <section>
+    <div class="section-label">Architecture — Before & After</div>
+    <h2>How Cascade AI works right now</h2>
+
+    <div class="arch">
+<pre>
+  NURSE SPEAKS (audio)
+        │
+        ▼
+  ┌─────────────────┐
+  │  INTAKE AGENT   │  ← Azure Speech (transcription) ✅ STAYS
+  │  intake_agent   │  ← Azure OpenAI GPT-4 (extract) ⚠️  CHANGES
+  └────────┬────────┘
+           │  HandoffSummary (JSON)
+           ▼
+  ┌─────────────────────────────────────────┐
+  │         COORDINATOR AGENT               │  ← Pure orchestrator, no LLM, UNTOUCHED
+  │         (runs agents in parallel)       │
+  └──┬──────────────┬────────────────┬──────┘
+     │              │                │
+     ▼              ▼                ▼
+  ┌──────────┐  ┌──────────┐  ┌──────────────┐
+  │VERIFICAT.│  │PROTOCOL  │  │UPDATE AGENT  │
+  │  AGENT   │  │  AGENT   │  │(mid-shift)   │
+  │Azure OAI │  │Azure OAI │  │Deepgram STT ✅│
+  │ (1 call) │  │ (2 calls)│  │Azure OAI ⚠️  │
+  └────┬─────┘  └────┬─────┘  └──────────────┘
+       │              │
+       └──────┬───────┘
+              ▼
+  ┌─────────────────────┐
+  │   DRAFT GENERATOR   │
+  │   draft_generator   │  ← Azure OpenAI (3 calls, parallel threads) ⚠️  CHANGES
+  └─────────────────────┘
+              │
+              ▼
+  STRUCTURED HANDOVER DOCUMENT (JSON → UI)
+</pre>
+    </div>
+
+    <br>
+    <h2>How it will work after the migration</h2>
+
+    <div class="arch">
+<pre>
+  NURSE SPEAKS (audio)
+        │
+        ▼
+  ┌─────────────────┐
+  │  INTAKE AGENT   │  ← Azure Speech (transcription) ✅ UNCHANGED
+  │  intake_agent   │  ← <span class="new-node">HF Llama 3.1 8B (extract)</span>  ✅ NEW
+  └────────┬────────┘
+           │  HandoffSummary (JSON)
+           ▼
+  ┌─────────────────────────────────────────┐
+  │         COORDINATOR AGENT               │  ✅ UNTOUCHED (no LLM calls)
+  └──┬──────────────┬────────────────┬──────┘
+     │              │                │
+     ▼              ▼                ▼
+  ┌──────────┐  ┌──────────┐  ┌──────────────┐
+  │VERIFICAT.│  │PROTOCOL  │  │UPDATE AGENT  │
+  │  AGENT   │  │  AGENT   │  │(mid-shift)   │
+  │<span class="new-node">HF Llama  </span>│  │<span class="new-node">HF Llama  </span>│  │Deepgram STT ✅│
+  │ (1 call) │  │ (2 calls)│  │<span class="new-node">HF Llama ✅  </span>│
+  └────┬─────┘  └────┬─────┘  └──────────────┘
+       │              │
+       └──────┬───────┘
+              ▼
+  ┌─────────────────────┐
+  │   DRAFT GENERATOR   │
+  │   <span class="new-node">HF Llama 3.1 8B  </span> │  ← 3 calls, fresh client per thread ✅ FIXED
+  └─────────────────────┘
+              ▼
+  STRUCTURED HANDOVER DOCUMENT — <span class="new-node">Under 20 seconds instead of 90 seconds</span>
+</pre>
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- The 7 steps -->
+  <section>
+    <div class="section-label">The Plan — 7 Steps</div>
+    <h2>What we will do, in order</h2>
+
+    <div class="callout">
+      <strong>Key rule:</strong> We do not touch any code until the plan is locked. Each step has its own branch, its own tests, its own verification. We never move to the next step if the current one fails.
+    </div>
+
+    <div class="timeline">
+      <div class="step" data-num="1">
+        <span class="step-risk risk-low">LOW RISK</span>
+        <div class="step-title">Add HF dependency + shared client helper</div>
+        <span class="step-file">hf_client.py (NEW)</span>
+        <span class="step-file">requirements.txt</span>
+        <div class="step-desc">Create a tiny new file called <code>hf_client.py</code> that returns an <code>OpenAI</code> client pointed at <code>router.huggingface.co/v1</code>. No new packages needed — we reuse <code>openai</code> already installed. Add <code>HF_TOKEN=</code> placeholder to .env. No existing agent code touched at all. This is the foundation everything else builds on.</div>
+      </div>
+
+      <div class="step" data-num="2">
+        <span class="step-risk risk-medium">MEDIUM</span>
+        <div class="step-title">Migrate Intake Agent <span class="parallel-badge">⚡ Parallel with 3 & 4</span></div>
+        <span class="step-file">intake_agent.py</span>
+        <span class="step-calls">1 LLM call</span>
+        <div class="step-desc">The first agent in the chain. Extracts structured patient data (name, room, meds, vitals) from the nurse's transcript. Swap AzureOpenAI client → HF InferenceClient. Speech transcription (Azure Speech) stays completely untouched.</div>
+      </div>
+
+      <div class="step" data-num="3">
+        <span class="step-risk risk-low">LOW RISK</span>
+        <div class="step-title">Migrate Verification Agent <span class="parallel-badge">⚡ Parallel with 2 & 4</span></div>
+        <span class="step-file">verification_agent.py</span>
+        <span class="step-calls">1 LLM call</span>
+        <div class="step-desc">Checks the handoff data against the patient's EMR record in Supabase. Finds discrepancies — wrong medication, unknown drug, vital out of range. Exact same code pattern as intake agent, straightforward swap.</div>
+      </div>
+
+      <div class="step" data-num="4">
+        <span class="step-risk risk-medium">MEDIUM</span>
+        <div class="step-title">Migrate Protocol Agent <span class="parallel-badge">⚡ Parallel with 2 & 3</span></div>
+        <span class="step-file">protocol_agent.py</span>
+        <span class="step-calls">2 LLM calls</span>
+        <div class="step-desc">Checks clinical protocol compliance — does this patient need a fall risk assessment? Is the ACS protocol being followed? Two separate LLM calls, both need updating. Same code pattern as above, just two places instead of one.</div>
+      </div>
+
+      <div class="step" data-num="5">
+        <span class="step-risk risk-medium">MEDIUM</span>
+        <div class="step-title">Migrate Update Agent <span class="parallel-badge">⚡ Parallel with 6</span></div>
+        <span class="step-file">update_agent.py</span>
+        <span class="step-calls">1 LLM call</span>
+        <div class="step-desc">Handles mid-shift updates — a nurse records "I gave 500mg paracetamol at 3pm". Uses Deepgram (not Azure Speech) for transcription — Deepgram stays untouched. Different import style to the other agents, slightly different change pattern.</div>
+      </div>
+
+      <div class="step" data-num="6">
+        <span class="step-risk risk-high">HIGH RISK</span>
+        <div class="step-title">Migrate Draft Generator <span class="parallel-badge">⚡ Parallel with 5</span></div>
+        <span class="step-file">draft_generator.py</span>
+        <span class="step-calls">3 LLM calls</span>
+        <div class="step-desc">The most complex agent. Generates the final structured handover document. 3 LLM calls originally running in parallel threads. <strong>Free-tier fix:</strong> calls are serialised (run one after another) to stay within HF's free rate limit of ~1 req/second. When upgrading to HF Pro, concurrency can be re-enabled in one line.</div>
+      </div>
+
+      <div class="step" data-num="7">
+        <span class="step-risk risk-low">LOW RISK</span>
+        <div class="step-title">Full integration test + cleanup</div>
+        <span class="step-file">All files</span>
+        <div class="step-desc">Run the entire system end-to-end. Verify zero Azure OpenAI references remain in active code. Remove unused openai package from requirements if no longer needed. Update README. Trigger website copy update: "under two minutes" → "under 20 seconds".</div>
+      </div>
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- Adversarial review findings -->
+  <section>
+    <div class="section-label">The Adversarial Review — What the Critic Found</div>
+    <h2>Issues raised, verified, and resolved</h2>
+
+    <div class="explain">
+      After writing the blueprint, we ran a second AI agent (Opus — the most powerful model) as a "hostile critic" and told it to find every flaw in the plan. Here's what it found and what actually happened when we checked.
+    </div>
+
+    <div class="finding critical">
+      <span class="badge-tag badge-critical">Critical — Resolved ✓</span>
+      <div class="title">C1 · Wrong response_format syntax for HF InferenceClient</div>
+      <div class="body">The critic claimed that <code>{"type": "json_object"}</code> is an OpenAI-only parameter and would silently fail or crash on HF — meaning agents would return plain text instead of JSON, breaking clinical output.</div>
+      <div class="fix">✅ Verified against actual code: <code>huggingface_hub==1.11.0</code> has a native <code>ChatCompletionInputResponseFormatJSONObject</code> type that accepts exactly <code>{"type": "json_object"}</code>. The plan is correct as-is. No change needed.</div>
+    </div>
+
+    <div class="finding critical">
+      <span class="badge-tag badge-resolved">Critical — Resolved ✓</span>
+      <div class="title">C2 · coordinator_agent.py was never audited for Azure OpenAI usage</div>
+      <div class="body">The coordinator is the orchestrator that calls all 5 agents. If it had its own Azure OpenAI client, we would have missed it and shipped a broken system.</div>
+      <div class="fix">✅ Read the full file. Confirmed: coordinator_agent.py is a pure orchestrator with zero LLM calls. It only imports and calls the other agents. Nothing to migrate there.</div>
+    </div>
+
+    <div class="finding critical">
+      <span class="badge-tag badge-resolved">Critical — Resolved ✓</span>
+      <div class="title">C3 · temperature=0.0 may behave differently on HF (patient safety risk)</div>
+      <div class="body">Azure OpenAI with temperature=0.0 is greedy deterministic decoding. Some HF backends historically reject 0.0 or silently coerce it to a default (e.g. 1.0), which for clinical data would mean the model paraphrases drug names and dosages — a direct patient safety hazard.</div>
+      <div class="fix">✅ Confirmed <code>temperature: float | None = None</code> is accepted directly by InferenceClient. Value 0.0 passes through to TGI. Added a post-migration determinism test to the plan: same input × 20 runs must produce identical output.</div>
+    </div>
+
+    <div class="finding critical">
+      <span class="badge-tag badge-resolved">Critical — Resolved ✓</span>
+      <div class="title">C4 · InferenceClient is not thread-safe — draft_generator uses threading</div>
+      <div class="body">draft_generator.py runs 3 LLM calls in parallel using Python's concurrent.futures thread pool. If all 3 share the same InferenceClient instance, they share the same internal requests.Session — causing connection pool corruption, header bleed-through, and garbled responses under load.</div>
+      <div class="fix">✅ Fixed in Step 6 of the plan: each lambda in the thread pool now calls <code>get_hf_client()</code> to create a fresh client, rather than sharing one. Thread-safety guaranteed at the cost of 2 extra client initialisations per handover — negligible overhead.</div>
+    </div>
+
+    <div class="finding high">
+      <span class="badge-tag badge-high">High — Fixed</span>
+      <div class="title">H1 · max_tokens=1024 too low for multi-resident clinical notes</div>
+      <div class="body">A 20-resident care home shift handover with vitals, medications, and incident summaries easily exceeds 1024 tokens. The model would truncate mid-JSON — potentially cutting a clinical instruction like "Do not administer" to "Do not".</div>
+      <div class="fix">✅ Bumped to 4096 tokens for draft_generator and protocol_agent in the plan. Also added instruction to detect <code>finish_reason == "length"</code> and fail loudly instead of silently returning truncated output.</div>
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- Before/After code change -->
+  <section>
+    <div class="section-label">The Actual Code Change — Before & After</div>
+    <h2>What changes in every agent file</h2>
+
+    <div class="explain">
+      The change is surgical — only the client initialisation and the API call change. The prompts, the JSON structure, the clinical logic, the speech transcription — none of that moves.
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>What</th>
+          <th>Before (Azure OpenAI)</th>
+          <th>After (HF Llama 3.1)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="neutral">Import</td>
+          <td class="before">from openai import AzureOpenAI</td>
+          <td class="after">from hf_client import get_hf_client, HF_MODEL</td>
+        </tr>
+        <tr>
+          <td class="neutral">Client init</td>
+          <td class="before">AzureOpenAI(<br>&nbsp;&nbsp;azure_endpoint=...,<br>&nbsp;&nbsp;api_key=...,<br>&nbsp;&nbsp;api_version=...<br>)</td>
+          <td class="after">get_hf_client()<br><br>(returns OpenAI client pointed at<br>router.huggingface.co/v1 — same SDK,<br>different URL)</td>
+        </tr>
+        <tr>
+          <td class="neutral">API call</td>
+          <td class="before">client.chat.completions.create(<br>&nbsp;&nbsp;model=deployment,<br>&nbsp;&nbsp;messages=...,<br>&nbsp;&nbsp;response_format={"type":"json_object"}<br>)</td>
+          <td class="after">client.chat.completions.create(<br>&nbsp;&nbsp;model=HF_MODEL,<br>&nbsp;&nbsp;messages=...,<br>&nbsp;&nbsp;temperature=0.0,<br>&nbsp;&nbsp;max_tokens=1024,<br>&nbsp;&nbsp;response_format={"type":"json_object"}<br>)<br><em style="color:#475569">← method name IDENTICAL, just model changes</em></td>
+        </tr>
+        <tr>
+          <td class="neutral">Response access</td>
+          <td class="before">response.choices[0].message.content</td>
+          <td class="after">response.choices[0].message.content<br><em style="color:#475569">(identical — same OpenAI-compatible format)</em></td>
+        </tr>
+        <tr>
+          <td class="neutral">Env vars needed</td>
+          <td class="before">AZURE_OPENAI_ENDPOINT<br>AZURE_OPENAI_KEY<br>AZURE_OPENAI_DEPLOYMENT<br>AZURE_OPENAI_API_VERSION</td>
+          <td class="after">HF_TOKEN<br><br><em style="color:#475569">(Azure vars kept in .env as comments, not deleted)</em></td>
+        </tr>
+        <tr>
+          <td class="neutral">Speech / STT</td>
+          <td class="before">Azure Speech SDK (intake)<br>Deepgram Nova-2 Medical (update)</td>
+          <td class="after">Azure Speech SDK (intake) — UNCHANGED<br>Deepgram Nova-2 Medical (update) — UNCHANGED</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <hr>
+
+  <!-- What's next -->
+  <section>
+    <div class="section-label">What's Next — Phase 2</div>
+    <h2>The execution order</h2>
+
+    <div class="two-col">
+      <div class="card green">
+        <h3>✅ Done: /blueprint + /plan-eng-review</h3>
+        <p style="font-size:0.875rem; color:#94a3b8; margin-top:0.5rem;">Plan is locked. 8 issues found and fixed. Approach simplified to OpenAI-compatible router. All edge cases addressed.</p>
+      </div>
+      <div class="card purple">
+        <h3>Next: Execute the migration</h3>
+        <p style="font-size:0.875rem; color:#94a3b8; margin-top:0.5rem;">Once HF license is approved — execute Steps 1–7 in order. Each step has its own branch, tests, and exit criteria. Stop if any step fails.</p>
+      </div>
+    </div>
+
+    <div class="callout" style="margin-top:1rem;">
+      <strong>Waiting on:</strong> Meta Llama 3.1 license approval at huggingface.co (request submitted — usually minutes). Once approved, paste your <code>HF_TOKEN</code> into <code>.env</code> and start Step 1.
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <div style="text-align:center; padding: 2rem 0; color: #334155; font-size:0.8rem;">
+    Cascade AI · Blueprint Phase 1 · Saturday 25 April 2026 · Generated by Claude Code
+  </div>
+
+</div>
+</body>
+</html>

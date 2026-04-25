@@ -13,9 +13,9 @@ from typing import Optional, Dict, Any
 from dotenv import load_dotenv
 import json
 
-# Azure imports
-from openai import AzureOpenAI
 import requests
+
+from hf_client import get_hf_client, HF_MODEL
 
 # Local imports
 from models import PatientUpdate
@@ -38,21 +38,10 @@ class UpdateAgent:
     """
     
     def __init__(self):
-        """Initialize UpdateAgent with Azure clients"""
-        # Azure OpenAI setup
-        self.openai_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
-        self.openai_key = os.getenv("AZURE_OPENAI_KEY")
-        self.deployment = os.getenv("AZURE_OPENAI_DEPLOYMENT")
-        
-        if not all([self.openai_endpoint, self.openai_key, self.deployment]):
-            raise UpdateAgentError("Missing Azure OpenAI credentials in environment variables")
-        
-        self.openai_client = AzureOpenAI(
-            azure_endpoint=self.openai_endpoint,
-            api_key=self.openai_key,
-            api_version="2024-08-01-preview"
-        )
-        
+        """Initialize UpdateAgent with HF Llama 3.1"""
+        self.hf_client = get_hf_client()
+        print("✅ UpdateAgent initialized with HF Llama 3.1")
+
         # Deepgram Speech-to-Text
         self.deepgram_api_key = os.getenv("DEEPGRAM_API_KEY")
         if not self.deepgram_api_key:
@@ -132,7 +121,7 @@ class UpdateAgent:
     
     def _extract_update_data(self, transcription: str, update_type: str) -> Dict[str, Any]:
         """
-        Extract structured data from update transcription using Azure OpenAI.
+        Extract structured data from update transcription using LLM.
         
         Args:
             transcription: Text of the update
@@ -181,13 +170,15 @@ Extract the structured data as JSON. Make sure event_type reflects what is ACTUA
 
             print(f"🤖 Extracting structured data from update...")
             
-            response = self.openai_client.chat.completions.create(
-                model=self.deployment,
+            response = self.hf_client.chat.completions.create(
+                model=HF_MODEL,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                response_format={"type": "json_object"}
+                temperature=0.0,
+                max_tokens=1024,
+                response_format={"type": "json_object"},
             )
             
             extracted_data = json.loads(response.choices[0].message.content)

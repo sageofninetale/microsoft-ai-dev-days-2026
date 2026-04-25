@@ -10,6 +10,8 @@ import os
 from dataclasses import dataclass, fields
 from typing import Dict, List, Optional
 
+from hf_client import get_hf_client, HF_MODEL
+
 
 __all__ = [
     "IntakeAgentError",
@@ -70,33 +72,18 @@ class PatientIntakeAgent:
         self,
         speech_key: Optional[str] = None,
         speech_region: Optional[str] = None,
-        azure_openai_endpoint: Optional[str] = None,
-        azure_openai_key: Optional[str] = None,
-        azure_openai_deployment: Optional[str] = None,
-        azure_openai_api_version: Optional[str] = None,
     ) -> None:
         self._speechsdk = _require_module("azure.cognitiveservices.speech", "azure-cognitiveservices-speech")
-        self._openai = _require_module("openai", "openai")
 
         self._speech_key = speech_key or _env("AZURE_SPEECH_KEY")
         self._speech_region = speech_region or _env("AZURE_SPEECH_REGION")
-        self._aoai_endpoint = azure_openai_endpoint or _env("AZURE_OPENAI_ENDPOINT")
-        self._aoai_key = azure_openai_key or _env("AZURE_OPENAI_KEY")
-        self._aoai_deployment = azure_openai_deployment or _env("AZURE_OPENAI_DEPLOYMENT")
-        self._aoai_api_version = azure_openai_api_version or os.getenv(
-            "AZURE_OPENAI_API_VERSION", "2024-02-15-preview"
-        )
 
         self._speech_config = self._speechsdk.SpeechConfig(
             subscription=self._speech_key,
             region=self._speech_region,
         )
 
-        self._aoai_client = self._openai.AzureOpenAI(
-            api_key=self._aoai_key,
-            azure_endpoint=self._aoai_endpoint,
-            api_version=self._aoai_api_version,
-        )
+        self._hf_client = get_hf_client()
 
     def transcribe(self, audio_path: str) -> str:
         if not os.path.exists(audio_path):
@@ -214,21 +201,22 @@ class PatientIntakeAgent:
             {"role": "user", "content": transcript},
         ]
 
-        response = self._aoai_client.chat.completions.create(
-            model=self._aoai_deployment,
-            # temperature=0,
+        response = self._hf_client.chat.completions.create(
+            model=HF_MODEL,
+            temperature=0.0,
             response_format={"type": "json_object"},
             messages=messages,
+            max_tokens=1024,
         )
 
         content = response.choices[0].message.content
         if not content:
-            raise IntakeAgentError("Azure OpenAI returned an empty response.")
+            raise IntakeAgentError("LLM returned an empty response.")
 
         try:
             payload = json.loads(content)
         except json.JSONDecodeError as exc:  # pragma: no cover - guard clause
-            raise IntakeAgentError("Azure OpenAI returned invalid JSON.") from exc
+            raise IntakeAgentError("LLM returned invalid JSON.") from exc
 
         return HandoffSummary.from_payload(payload)
 

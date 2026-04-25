@@ -10,6 +10,8 @@ import os
 from dataclasses import dataclass, field, fields
 from typing import Any, Dict, List, Optional
 
+from hf_client import get_hf_client, HF_MODEL
+
 
 __all__ = [
     "VerificationAgentError",
@@ -86,13 +88,8 @@ class VerificationAgent:
         self,
         supabase_url: Optional[str] = None,
         supabase_key: Optional[str] = None,
-        azure_openai_endpoint: Optional[str] = None,
-        azure_openai_key: Optional[str] = None,
-        azure_openai_deployment: Optional[str] = None,
-        azure_openai_api_version: Optional[str] = None,
     ) -> None:
         self._supabase_module = _require_module("supabase", "supabase")
-        self._openai = _require_module("openai", "openai")
 
         # Supabase configuration
         self._supabase_url = supabase_url or _env("SUPABASE_URL")
@@ -102,19 +99,7 @@ class VerificationAgent:
             self._supabase_key
         )
 
-        # Azure OpenAI configuration
-        self._aoai_endpoint = azure_openai_endpoint or _env("AZURE_OPENAI_ENDPOINT")
-        self._aoai_key = azure_openai_key or _env("AZURE_OPENAI_KEY")
-        self._aoai_deployment = azure_openai_deployment or _env("AZURE_OPENAI_DEPLOYMENT")
-        self._aoai_api_version = azure_openai_api_version or os.getenv(
-            "AZURE_OPENAI_API_VERSION", "2024-02-15-preview"
-        )
-
-        self._aoai_client = self._openai.AzureOpenAI(
-            api_key=self._aoai_key,
-            azure_endpoint=self._aoai_endpoint,
-            api_version=self._aoai_api_version,
-        )
+        self._hf_client = get_hf_client()
 
     def _fetch_patient_record(self, patient_id: str) -> Dict[str, Any]:
         """Fetch patient record from Supabase."""
@@ -131,7 +116,7 @@ class VerificationAgent:
             raise VerificationAgentError(f"Failed to fetch patient record: {str(exc)}") from exc
 
     def _generate_reasoning(self, finding_context: Dict[str, Any]) -> str:
-        """Use Azure OpenAI to generate intelligent reasoning for a finding."""
+        """Use LLM to generate intelligent reasoning for a finding."""
         messages = [
             {
                 "role": "system",
@@ -148,10 +133,11 @@ class VerificationAgent:
         ]
 
         try:
-            response = self._aoai_client.chat.completions.create(
-                model=self._aoai_deployment,
+            response = self._hf_client.chat.completions.create(
+                model=HF_MODEL,
                 messages=messages,
-                max_completion_tokens=150,
+                temperature=0.0,
+                max_tokens=150,
             )
             
             content = response.choices[0].message.content
