@@ -103,10 +103,11 @@ class DraftGenerator:
 
             system_prompt = """You are a clinical timeline analyzer. Generate a detailed chronological timeline with severity classification.
 
-SEVERITY LEVELS — assign the HIGHEST applicable severity for each event:
-🔴 RED (CRITICAL): SpO2 <90%, HR >120 or <50, SBP <90 or >180, DBP <60, Temp >103°F, active bleeding, chest pain, altered consciousness, respiratory distress
-🟠 ORANGE (HIGH RISK): Dual anticoagulation, drug-drug interactions, vitals trending worse (BP 160-179, HR 100-120, SpO2 90-93%), pending critical labs, held high-risk meds
-🟡 YELLOW (CAUTION): New medications not in EMR, mild abnormal vitals (BP 140-159 SBP, Temp 100.4-102°F, Pain 6-7/10), held medications with reason, abnormal findings pending review
+SEVERITY LEVELS — assign the HIGHEST applicable severity for each event (based on NHS NEWS2):
+🔴 RED (CRITICAL): SpO2 91% or below | HR 131 or above, or 40 or below | SBP 90 or below, or 220 or above | Temp 102.3°F or above | active bleeding | chest pain | altered consciousness | confirmed respiratory distress
+🟠 ORANGE (HIGH RISK): SpO2 92–93% | HR 111–130 or 41–50 | SBP 91–100 | drug-drug interactions | dual anticoagulation | held high-risk medications | pending critical lab results
+🟡 YELLOW (CAUTION): SpO2 94–95% | HR 91–110 or 51–60 | SBP 101–110 | Temp 100.4–102.2°F | Pain 4–6/10 | new medications not in EMR | abnormal findings pending review
+🟢 GREEN (VERIFIED): All vitals in normal range | medications in EMR administered as scheduled | pain 0–3/10 | stable condition confirmed
 🟢 GREEN (VERIFIED): Medications in EMR administered safely as scheduled, normal vitals documented, pain controlled (<5/10), stable stable condition confirmed
 🔵 BLUE (INFO): Comfort measures, family updates, patient education, repositioning, ambulation, oral care, routine care
 ⚪ GRAY (ADMIN): Shift handover only, room number changes, documentation corrections
@@ -206,10 +207,49 @@ MEDICATION STATUS:
 - NEW (🟡): Not in EMR yet, needs reconciliation
 - CONFLICTING (🔴): Drug-drug interaction, allergy conflict, or dosing error — always explain the specific risk
 
-VITAL SEVERITY:
-- RED (🔴): HR >120/<50, BP >180/<90 or <90/<60, Temp >103°F, SpO2 <90%, RR >30/<10
-- YELLOW (🟡): HR 100-120/50-60, BP 140-179/90-109, Temp 100.4-102°F, SpO2 90-93%, Pain 6-7/10
-- GREEN (🟢): Normal ranges
+VITAL SEVERITY — apply each threshold strictly per vital in isolation. Do NOT elevate a vital's colour based on the overall patient context; that belongs in Safety Alerts:
+
+Heart Rate (bpm):
+- RED (🔴): 130 or above, OR 40 or below
+- ORANGE (🟠): 111 to 130, OR 41 to 50
+- YELLOW (🟡): 91 to 110, OR 51 to 60 (mild tachycardia/bradycardia)
+- GREEN (🟢): 61 to 90
+
+Systolic Blood Pressure (mmHg):
+- RED (🔴): 90 or below, OR 220 or above
+- ORANGE (🟠): 91 to 100, OR exact value 219 (borderline high)
+- YELLOW (🟡): 101 to 110 (borderline low) — note: 111 to 219 is GREEN
+- GREEN (🟢): 111 to 219
+
+Temperature (°F):
+- RED (🔴): 102.3°F or above, OR 95.0°F or below
+- YELLOW (🟡): 100.4°F to 102.2°F (low-grade to moderate fever)
+- GREEN (🟢): 97.9°F to 100.3°F
+
+SpO2 (%):
+- RED (🔴): 91% or below
+- ORANGE (🟠): 92% to 93%
+- YELLOW (🟡): 94% to 95%
+- GREEN (🟢): 96% or above
+- NOTE: If patient is on supplemental oxygen, record that in the value (e.g. "91% on 4L NC") and escalate severity by one level
+
+Pain (0–10):
+- RED (🔴): 7 to 10 — severe, immediate intervention required
+- YELLOW (🟡): 4 to 6 — moderate, medication review needed
+- GREEN (🟢): 0 to 3 — mild or none, controlled
+- GREEN (🟢): Not reported — use value "Not reported"
+
+Calibration examples (use these to verify your judgement):
+- HR 112 bpm → ORANGE (111 to 130 range)
+- HR 128 bpm → ORANGE (111 to 130 range)
+- HR 131 bpm → RED (130 or above)
+- BP SBP 98 → ORANGE (91 to 100 range)
+- BP SBP 85 → RED (90 or below)
+- BP SBP 115 → GREEN (111 to 219 range)
+- SpO2 91% on room air → RED (91% or below)
+- SpO2 92% → ORANGE (92 to 93%)
+- SpO2 94% → YELLOW (94 to 95%)
+- Temp 100.4°F → YELLOW (100.4 to 102.2°F range)
 
 SAFETY ALERT RULES — Every alert MUST include ALL of these:
 1. WHAT: The specific drug name, vital value, or condition (never vague)
