@@ -1,7 +1,7 @@
 import os
 from openai import OpenAI
 
-HF_MODEL = "llama-3.1-8b-instant"
+HF_MODEL = "llama-3.3-70b-versatile"
 HF_BASE_URL = "https://api.groq.com/openai/v1"
 
 
