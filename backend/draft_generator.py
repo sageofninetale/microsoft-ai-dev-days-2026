@@ -103,13 +103,24 @@ class DraftGenerator:
 
             system_prompt = """You are a clinical timeline analyzer. Generate a detailed chronological timeline with severity classification.
 
-SEVERITY LEVELS:
-🔴 RED (CRITICAL): SpO2 <90%, HR >120/<50, SBP >180/<90, Temp >103°F, active bleeding, chest pain, altered consciousness
-🟠 ORANGE (HIGH RISK): Dual anticoagulation, abnormal vitals trending worse (BP 160-179/100-109, HR 100-120, SpO2 90-93%), pending critical labs
-🟡 YELLOW (CAUTION): New meds not in EMR, mild abnormal vitals (BP 140-159 SBP, Temp 100.4-102°F, Pain 6-7/10), held medications
-🟢 GREEN (VERIFIED): Meds in EMR administered as scheduled, vitals normal, pain controlled (<5/10), stable condition
-🔵 BLUE (INFO): Comfort measures, family updates, patient education, routine care, ambulation
-⚪ GRAY (ADMIN): Shift changes, room transfers, general observations
+SEVERITY LEVELS — assign the HIGHEST applicable severity for each event:
+🔴 RED (CRITICAL): SpO2 <90%, HR >120 or <50, SBP <90 or >180, DBP <60, Temp >103°F, active bleeding, chest pain, altered consciousness, respiratory distress
+🟠 ORANGE (HIGH RISK): Dual anticoagulation, drug-drug interactions, vitals trending worse (BP 160-179, HR 100-120, SpO2 90-93%), pending critical labs, held high-risk meds
+🟡 YELLOW (CAUTION): New medications not in EMR, mild abnormal vitals (BP 140-159 SBP, Temp 100.4-102°F, Pain 6-7/10), held medications with reason, abnormal findings pending review
+🟢 GREEN (VERIFIED): Medications in EMR administered safely as scheduled, normal vitals documented, pain controlled (<5/10), stable stable condition confirmed
+🔵 BLUE (INFO): Comfort measures, family updates, patient education, repositioning, ambulation, oral care, routine care
+⚪ GRAY (ADMIN): Shift handover only, room number changes, documentation corrections
+
+SEVERITY EXAMPLES (use these to calibrate your judgement):
+- "Warfarin 5mg PO given as scheduled" → GREEN (in EMR, safe)
+- "Amlodipine 5mg held — BP 98/62 hypotensive" → ORANGE (held high-risk med + reason)
+- "BP 98/62, HR 112, SpO2 91%, RR 26 with accessory muscle use" → RED (hypotension + tachycardia + low SpO2)
+- "Omeprazole 20mg given — interacts with Warfarin" → ORANGE (drug interaction)
+- "Family updated at bedside — agreed full code" → BLUE (communication)
+- "Patient repositioned, comfortable" → BLUE (comfort care)
+- "Chest X-ray ordered — results pending" → YELLOW (pending result)
+
+IMPORTANT: GRAY is ONLY for pure administrative events (shift start/end, room transfers). Every clinical event — medication administration, vital recording, procedure, test, communication — must use RED/ORANGE/YELLOW/GREEN/BLUE based on clinical significance. Do NOT use GRAY for clinical events.
 
 CRITICAL RULES FOR EVENT DESCRIPTIONS:
 - Include EXACT medication names, doses, routes (e.g. "Warfarin 5mg PO administered as scheduled")
@@ -213,6 +224,18 @@ SAFETY ALERT CHECKS — Always check for ALL of these:
 - Held or withheld medications and the reason
 - Pending critical lab results or imaging reports
 - Any deteriorating clinical trend
+
+MANDATORY DRUG INTERACTION CHECKS — These MUST be flagged if present:
+1. Warfarin + Omeprazole (or any PPI): PPIs inhibit CYP2C19 → reduced warfarin metabolism → elevated INR → bleeding risk. Alert: "Warfarin + Omeprazole co-administration: PPI inhibits warfarin metabolism via CYP2C19 — supratherapeutic INR risk. Review INR urgently and notify prescribing clinician."
+2. Warfarin + NSAIDs (aspirin, ibuprofen, naproxen): NSAIDs displace warfarin from protein binding + GI bleeding risk. Alert with both mechanisms.
+3. Dual anticoagulation (warfarin + heparin, warfarin + DOAC, warfarin + enoxaparin): Additive bleeding risk — always flag.
+4. ACE inhibitor + potassium-sparing diuretic: Hyperkalemia risk.
+5. Beta-blocker + verapamil/diltiazem: Bradycardia/heart block risk.
+
+MANDATORY RESPIRATORY DISTRESS CHECK — Flag as RED CRITICAL if ALL present:
+- RR > 24 breaths/min, AND
+- SpO2 < 93%, OR patient using accessory muscles, OR patient dyspnoeic at rest
+Alert: "Respiratory deterioration: RR [value], SpO2 [value] [on X L/min O2], [accessory muscle use/dyspnoea at rest]. Clinical picture consistent with [respiratory distress/worsening infection/fluid overload]. Escalate immediately — consider medical review, ABG, and escalation of oxygen therapy."
 
 PENDING ACTIONS RULES:
 - Generate a minimum of 3 pending actions, up to 6 for complex patients
@@ -378,7 +401,7 @@ EMR Medications: {', '.join([str(m) for m in emr_medications]) if emr_medication
 SHIFT UPDATES ({update_count} total):
 {updates_text}
 
-Generate 150-250 word narrative handoff summary."""
+Generate 250-400 word narrative handoff summary."""
 
             import time
             start = time.time()
