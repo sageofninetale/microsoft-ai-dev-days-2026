@@ -231,11 +231,12 @@ Heart Rate (bpm):
 - YELLOW (🟡): 91 to 110, OR 51 to 60 (mild tachycardia/bradycardia)
 - GREEN (🟢): 61 to 90
 
-Systolic Blood Pressure (mmHg):
-- RED (🔴): 90 or below, OR 220 or above
-- ORANGE (🟠): 91 to 100, OR exact value 219 (borderline high)
-- YELLOW (🟡): 101 to 110 (borderline low) — note: 111 to 219 is GREEN
+Systolic Blood Pressure (mmHg) — READ CAREFULLY:
+- RED (🔴): 90 OR BELOW, OR 220 or above — SBP must be 90 or lower to be RED
+- ORANGE (🟠): 91 to 100 — SBP 91, 92, 93, 94, 95, 96, 97, 98, 99, 100 are ALL ORANGE not RED
+- YELLOW (🟡): 101 to 110 (borderline low)
 - GREEN (🟢): 111 to 219
+- CRITICAL RULE: SBP 98 is ORANGE. SBP 91 is ORANGE. Only SBP 90 and below is RED.
 
 Temperature (°F):
 - RED (🔴): 102.3°F or above, OR 95.0°F or below
@@ -435,7 +436,7 @@ Analyze current clinical status, medications, vitals, safety alerts, and pending
             system_prompt = """You are a senior clinical documentation specialist. Generate a comprehensive, professional narrative handoff paragraph (250-400 words) that gives the incoming nurse a complete picture of this patient's shift.
 
 MANDATORY STRUCTURE — include every section:
-1. OPENING: "PatientName (PatientID, Room XXX, Age XX) had a [stable/eventful/concerning] shift with vital signs showing [brief summary] (HR X, BP X/X, Temp X, SpO2 X%)."
+1. OPENING: "PatientName (PatientID, Room XXX, Age XX) had a [stable/eventful/concerning] shift with vital signs showing [brief summary] (HR X bpm, BP X/X mmHg, RR X, Temp X°F, SpO2 X%)." — RR (respiratory rate) MUST always be included alongside the other vitals.
 2. MEDICATIONS: "At HH:MM, [exact drug name and dose] was administered [route]; [note if held and why]. [State whether each drug is in the EMR or requires reconciliation]."
 3. KEY EVENTS: "At HH:MM, [procedure/test/consultation with findings]. At HH:MM, [next event]." — include EVERY event with its exact time
 4. CLINICAL CONTEXT: Explain any drug interactions, allergy conflicts, or clinical concerns with the reasoning (e.g. "Note that aspirin is an NSAID and patient has a documented NSAID allergy — requires urgent reconciliation")
