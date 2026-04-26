@@ -38,6 +38,21 @@ class DraftGenerator:
         self.hf_client = get_hf_client()
         print("✅ DraftGenerator initialized with HF Llama 3.1")
     
+    def _sort_timeline_by_time(self, timeline: List[Dict]) -> List[Dict]:
+        """Sort timeline events into strict chronological order after LLM generation."""
+        from datetime import datetime
+
+        def parse_time(event):
+            try:
+                return datetime.strptime(event.get('time', '12:00 AM').strip(), '%I:%M %p')
+            except Exception:
+                try:
+                    return datetime.strptime(event.get('time', '00:00').strip(), '%H:%M')
+                except Exception:
+                    return datetime.min
+
+        return sorted(timeline, key=parse_time)
+
     def _organize_updates(self, updates: List[PatientUpdate]) -> Dict[str, Any]:
         """
         Organize updates by type and chronological order.
@@ -203,9 +218,10 @@ Generate timeline with severity classification."""
             system_prompt = """You are a senior clinical safety analyst generating a nurse shift handoff report. Your job is to produce detailed, actionable safety alerts and pending actions that could prevent patient harm.
 
 MEDICATION STATUS:
-- VERIFIED (🟢): In EMR, safe dose, no interactions
+- VERIFIED (🟢): In EMR, administered safely as scheduled, no interactions, no holds
 - NEW (🟡): Not in EMR yet, needs reconciliation
-- CONFLICTING (🔴): Drug-drug interaction, allergy conflict, or dosing error — always explain the specific risk
+- CONFLICTING (🔴): ANY of — drug-drug interaction | allergy conflict | dosing error | medication was HELD or WITHHELD during this shift
+- HELD MEDICATION RULE: If a medication was held or withheld for ANY reason (hypotension, clinical concern, etc.), it MUST be marked CONFLICTING and the display field MUST include "— Held: [reason]" (e.g. "Amlodipine 10mg oral daily — Held: hypotension BP 98/62")
 
 VITAL SEVERITY — apply each threshold strictly per vital in isolation. Do NOT elevate a vital's colour based on the overall patient context; that belongs in Safety Alerts:
 
@@ -278,12 +294,20 @@ MANDATORY RESPIRATORY DISTRESS CHECK — Flag as RED CRITICAL if ALL present:
 Alert: "Respiratory deterioration: RR [value], SpO2 [value] [on X L/min O2], [accessory muscle use/dyspnoea at rest]. Clinical picture consistent with [respiratory distress/worsening infection/fluid overload]. Escalate immediately — consider medical review, ABG, and escalation of oxygen therapy."
 
 PENDING ACTIONS RULES:
-- Generate a minimum of 3 pending actions, up to 6 for complex patients
-- Each action must start with an ACTION VERB (Obtain, Notify, Reassess, Monitor, Hold, Escalate, Review, Reconcile)
+- For stable patients: minimum 3 actions. For complex/critically ill patients (multiple RED or ORANGE flags): generate 5-6 actions
+- Each action must start with an ACTION VERB (Obtain, Notify, Reassess, Monitor, Hold, Escalate, Review, Reconcile, Request, Adjust)
 - CRITICAL: Immediate patient safety risk — must be done within 1 hour
 - HIGH: Important clinical task — must be done within the shift
 - ROUTINE: Standard monitoring or documentation
 - Never write vague actions like "assess patient" — always say what specifically to assess and why
+
+MANDATORY PENDING ACTION TRIGGERS — always generate these when applicable:
+1. Pending imaging result (X-ray, CT, MRI) → CRITICAL action: "Request attending physician review of [imaging type] result and discuss clinical management plan"
+2. Pending lab result (INR, cultures, bloods) → CRITICAL action: "Obtain and review [lab] result urgently and notify prescribing clinician"
+3. Held antihypertensive due to hypotension → HIGH action: "Reassess antihypertensive regimen — [drug] held due to [reason]; adjust or restart as clinically indicated given current BP [value]"
+4. Respiratory distress → CRITICAL action: "Escalate respiratory status to attending physician — consider increasing O2, high-flow nasal cannula, ABG, or ICU review if work of breathing worsens"
+5. Drug interaction flagged → CRITICAL action: specific monitoring step for that interaction
+6. Patient on anticoagulant with pending INR → always include INR review as CRITICAL
 
 KEY CHANGES RULES:
 - Include every medication administered or held during the shift
@@ -490,6 +514,7 @@ Generate 250-400 word narrative handoff summary."""
             
             # Sequential for HF free-tier rate limits — restore concurrent.futures when on Pro
             timeline = await self._generate_timeline_async(patient_data, organized_updates)
+            timeline = self._sort_timeline_by_time(timeline)
             clinical_data = await self._generate_clinical_status_async(patient_data, organized_updates)
             narrative = await self._generate_narrative_async(patient_data, organized_updates, update_count)
 
