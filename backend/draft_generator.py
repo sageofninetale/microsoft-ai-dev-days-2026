@@ -101,22 +101,31 @@ class DraftGenerator:
             for update_info in organized_updates["all_chronological"]:
                 updates_text += f"\n• {update_info['timestamp']} - {update_info['transcription'][:200]}"
 
-            system_prompt = """You are a clinical timeline analyzer. Generate a chronological timeline with severity classification.
+            system_prompt = """You are a clinical timeline analyzer. Generate a detailed chronological timeline with severity classification.
 
 SEVERITY LEVELS:
-🔴 RED (CRITICAL): SpO2 <90%, HR >120/<50, SBP >180/<90, Temp >103°F, active bleeding, chest pain
-🟠 ORANGE (HIGH RISK): Dual anticoagulation, abnormal vitals trending worse (BP 160-179/100-109, HR 100-120, SpO2 90-93%)
-🟡 YELLOW (CAUTION): New meds not in EMR, mild abnormal vitals (BP 140-159 SBP, Temp 100.4-102°F, Pain 6-7/10)
-🟢 GREEN (VERIFIED): Meds in EMR, vitals normal, pain controlled (<5/10), stable
-🔵 BLUE (INFO): Comfort measures, family updates, routine care
+🔴 RED (CRITICAL): SpO2 <90%, HR >120/<50, SBP >180/<90, Temp >103°F, active bleeding, chest pain, altered consciousness
+🟠 ORANGE (HIGH RISK): Dual anticoagulation, abnormal vitals trending worse (BP 160-179/100-109, HR 100-120, SpO2 90-93%), pending critical labs
+🟡 YELLOW (CAUTION): New meds not in EMR, mild abnormal vitals (BP 140-159 SBP, Temp 100.4-102°F, Pain 6-7/10), held medications
+🟢 GREEN (VERIFIED): Meds in EMR administered as scheduled, vitals normal, pain controlled (<5/10), stable condition
+🔵 BLUE (INFO): Comfort measures, family updates, patient education, routine care, ambulation
 ⚪ GRAY (ADMIN): Shift changes, room transfers, general observations
+
+CRITICAL RULES FOR EVENT DESCRIPTIONS:
+- Include EXACT medication names, doses, routes (e.g. "Warfarin 5mg PO administered as scheduled")
+- Include EXACT vital values with units (e.g. "BP 98/62, HR 112, RR 26, Temp 100.4°F, SpO2 91% on 4L NC")
+- Include clinical context (e.g. "patient short of breath at rest using accessory muscles")
+- Include results and findings (e.g. "chest x-ray showing worsening bilateral infiltrates")
+- Include who was notified and what was agreed (e.g. "family updated, agreed to full code status")
+- Never write vague descriptions like "vitals recorded" — always include the actual values
+- Never write "medication given" — always include name, dose, route
 
 Return a JSON object with a single key "timeline" whose value is the array:
 {
   "timeline": [
     {
       "time": "HH:MM AM/PM",
-      "event": "Brief description",
+      "event": "Detailed clinical description with specific values, context, and outcomes",
       "severity": "RED|ORANGE|YELLOW|GREEN|BLUE|GRAY",
       "icon": "🔴|🟠|🟡|🟢|🔵|⚪"
     }
@@ -179,17 +188,45 @@ Generate timeline with severity classification."""
             for update_info in organized_updates["all_chronological"]:
                 updates_text += f"\n• {update_info['timestamp']} - {update_info['transcription'][:200]}"
             
-            system_prompt = """You are a clinical status analyzer. Extract current status, vitals, medications, and safety alerts.
+            system_prompt = """You are a senior clinical safety analyst generating a nurse shift handoff report. Your job is to produce detailed, actionable safety alerts and pending actions that could prevent patient harm.
 
 MEDICATION STATUS:
 - VERIFIED (🟢): In EMR, safe dose, no interactions
-- NEW (🟡): Not in EMR yet, needs verification
-- CONFLICTING (🔴): Drug interaction, allergy, dosing error
+- NEW (🟡): Not in EMR yet, needs reconciliation
+- CONFLICTING (🔴): Drug-drug interaction, allergy conflict, or dosing error — always explain the specific risk
 
 VITAL SEVERITY:
 - RED (🔴): HR >120/<50, BP >180/<90 or <90/<60, Temp >103°F, SpO2 <90%, RR >30/<10
 - YELLOW (🟡): HR 100-120/50-60, BP 140-179/90-109, Temp 100.4-102°F, SpO2 90-93%, Pain 6-7/10
 - GREEN (🟢): Normal ranges
+
+SAFETY ALERT RULES — Every alert MUST include ALL of these:
+1. WHAT: The specific drug name, vital value, or condition (never vague)
+2. WHY IT IS DANGEROUS: The clinical mechanism or risk (e.g. "PPI increases warfarin absorption → supratherapeutic INR → bleeding risk")
+3. CURRENT CONTEXT: What is happening right now that makes this urgent (e.g. "INR result still pending")
+4. WHAT TO DO: Specific action the incoming nurse must take (e.g. "Review INR urgently when available and notify prescribing clinician")
+
+SAFETY ALERT CHECKS — Always check for ALL of these:
+- Drug-allergy conflicts (cross-reference every administered medication against patient allergies)
+- Drug-drug interactions (especially anticoagulants, antihypertensives, antibiotics, NSAIDs)
+- Abnormal vital signs with clinical interpretation
+- Held or withheld medications and the reason
+- Pending critical lab results or imaging reports
+- Any deteriorating clinical trend
+
+PENDING ACTIONS RULES:
+- Generate a minimum of 3 pending actions, up to 6 for complex patients
+- Each action must start with an ACTION VERB (Obtain, Notify, Reassess, Monitor, Hold, Escalate, Review, Reconcile)
+- CRITICAL: Immediate patient safety risk — must be done within 1 hour
+- HIGH: Important clinical task — must be done within the shift
+- ROUTINE: Standard monitoring or documentation
+- Never write vague actions like "assess patient" — always say what specifically to assess and why
+
+KEY CHANGES RULES:
+- Include every medication administered or held during the shift
+- Include every abnormal vital or trending change
+- Include every procedure, test, or consultation
+- Include family/patient communication events
 
 Return JSON:
 {
@@ -213,30 +250,30 @@ Return JSON:
       "spo2": {"value": "X%", "severity": "RED|YELLOW|GREEN", "icon": "🔴|🟡|🟢"},
       "pain": {"value": "X/10", "severity": "RED|YELLOW|GREEN", "icon": "🔴|🟡|🟢"}
     },
-    "overall_condition": "1-2 sentence summary"
+    "overall_condition": "2-3 sentence clinical summary including diagnosis context, current stability, and most urgent concern"
   },
   "safety_alerts": [
     {
-      "type": "DRUG_INTERACTION|ABNORMAL_VITAL|ALLERGY|CRITICAL_LAB",
+      "type": "DRUG_INTERACTION|ABNORMAL_VITAL|ALLERGY|CRITICAL_LAB|HELD_MED|PENDING_RESULT",
       "severity": "RED|ORANGE|YELLOW",
       "icon": "🔴|🟠|🟡",
-      "message": "Detailed alert"
+      "message": "DrugA + DrugB: [mechanism of interaction] — patient is [current context] — risk of [specific harm]. Recommended action: [exact step to take]."
     }
   ],
   "key_changes": [
     {
-      "change": "Description",
+      "change": "Specific description with drug names, values, times, and clinical context",
       "severity": "RED|ORANGE|YELLOW|GREEN|BLUE",
       "icon": "🔴|🟠|🟡|🟢|🔵"
     }
   ],
   "pending_actions": [
     {
-      "action": "Description",
+      "action": "Action verb + specific task + reason (e.g. Obtain and review INR result urgently and notify prescribing clinician for warfarin dosing decision)",
       "category": "CRITICAL|HIGH|ROUTINE",
       "severity": "RED|ORANGE|YELLOW",
       "icon": "🚨|⚠️|📋",
-      "priority": 1|2|3
+      "priority": 1
     }
   ]
 }"""
@@ -308,22 +345,28 @@ Analyze current clinical status, medications, vitals, safety alerts, and pending
             emr_medications = patient_data.get("medications", [])
             emr_allergies = patient_data.get("allergies", [])
             
-            system_prompt = """You are a clinical documentation specialist. Generate a professional narrative handoff paragraph (150-250 words).
+            system_prompt = """You are a senior clinical documentation specialist. Generate a comprehensive, professional narrative handoff paragraph (250-400 words) that gives the incoming nurse a complete picture of this patient's shift.
 
-STRUCTURE:
-1. Opening: "PatientName (PatientID, Room XXX, Age XX) had a [stable/eventful/concerning] shift..."
-2. Vital signs: "with vital signs [within normal limits / showing X] (HR X, BP X/X)."
-3. Key events: "At HH:MM, [event]. "
-4. Medication changes: Mention new/discontinued meds and EMR status
-5. Pending items: "Blood work pending, [specialty] consulted for [reason]."
-6. Status: "Patient remains [comfortable/stable/requiring monitoring] with [no acute changes / X concerns]."
-7. Critical action: "Critical action required: [most urgent task]."
+MANDATORY STRUCTURE — include every section:
+1. OPENING: "PatientName (PatientID, Room XXX, Age XX) had a [stable/eventful/concerning] shift with vital signs showing [brief summary] (HR X, BP X/X, Temp X, SpO2 X%)."
+2. MEDICATIONS: "At HH:MM, [exact drug name and dose] was administered [route]; [note if held and why]. [State whether each drug is in the EMR or requires reconciliation]."
+3. KEY EVENTS: "At HH:MM, [procedure/test/consultation with findings]. At HH:MM, [next event]." — include EVERY event with its exact time
+4. CLINICAL CONTEXT: Explain any drug interactions, allergy conflicts, or clinical concerns with the reasoning (e.g. "Note that aspirin is an NSAID and patient has a documented NSAID allergy — requires urgent reconciliation")
+5. PENDING ITEMS: "The following are pending: [list each pending result, consultation, or action with context]."
+6. PATIENT STATUS: "The patient remains [description of current state — comfort, cooperation, mobility, mental status]."
+7. CRITICAL ACTION: "Critical action required: [the single most urgent task for the incoming nurse, with specific clinical reasoning]."
 
-TONE: Conversational handoff style, professional, readable
+QUALITY RULES:
+- Always include exact drug names, doses, and routes — never say "medication was given"
+- Always include exact vital values — never say "vitals were recorded"
+- Always explain WHY something is clinically significant
+- Always mention family communication if it occurred
+- Always mention consultations and whether results are back or pending
+- The incoming nurse should be able to read this paragraph and know everything that happened without looking at any other section
 
-EXAMPLE: "Willie Bennett (P056, Room 405, Age 72) had a stable shift with vital signs remaining within normal limits (HR 90, BP 120/90). At 02:00, the patient received paracetamol and aspirin for pain management, though these medications are not currently documented in the EMR and require reconciliation. Blood work is pending, and cardiothoracic surgery has been consulted for angiogram planning. The patient remains comfortable with no acute changes. Critical action required: Reconcile aspirin administration with medication record and assess bleeding risk given concurrent Warfarin therapy."
+TONE: Professional clinical handoff — clear, specific, no ambiguity
 
-Return JSON: {"narrative_summary": "Your 150-250 word paragraph here"}"""
+Return JSON: {"narrative_summary": "Your 250-400 word paragraph here"}"""
 
             user_prompt = f"""Patient: {patient_data.get('name', 'Unknown Patient')}
 Patient ID: {patient_data.get('patient_id', 'Unknown')}
