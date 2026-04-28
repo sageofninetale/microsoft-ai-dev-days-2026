@@ -670,7 +670,7 @@ function App() {
               <div className="flex items-center gap-4 p-4 bg-forest-green/5 rounded-2xl border border-forest-green/10">
                 <span className="material-icons-outlined text-forest-green">verified_user</span>
                 <p className="text-sm text-slate-600">
-                  <strong>5 AI Agents</strong> will cross-check clinical data against EMR records as you start.
+                  <strong>6 AI Agents</strong> will cross-check clinical data against EMR records as you start.
                 </p>
               </div>
 

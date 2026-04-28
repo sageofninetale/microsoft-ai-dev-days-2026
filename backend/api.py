@@ -286,11 +286,11 @@ async def get_nurses():
     print("📋 Fetching nurse list...")
     
     nurses = [
-        {"id": "NURSE_CRISTIANO", "name": "Cristiano Ronaldo"},
-        {"id": "NURSE_MESSI", "name": "Lionel Messi"},
-        {"id": "NURSE_NEYMAR", "name": "Neymar Junior"},
-        {"id": "NURSE_MBAPPE", "name": "Kylian Mbappe"},
-        {"id": "NURSE_HAALAND", "name": "Erling Haaland"}
+        {"id": "NURSE_SARAH", "name": "Sarah Mitchell"},
+        {"id": "NURSE_JAMES", "name": "James Okafor"},
+        {"id": "NURSE_PRIYA", "name": "Priya Sharma"},
+        {"id": "NURSE_EMMA", "name": "Emma Clarke"},
+        {"id": "NURSE_DANIEL", "name": "Daniel Wong"}
     ]
     
     print(f"✅ Returning {len(nurses)} nurses")
