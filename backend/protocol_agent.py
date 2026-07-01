@@ -10,7 +10,7 @@ import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from hf_client import get_hf_client, HF_MODEL
+from llm_client import ask_llm
 
 
 __all__ = [
@@ -87,65 +87,45 @@ class ProtocolAgent:
     """Checks clinical protocol compliance for patient care."""
 
     def __init__(self) -> None:
-        self._hf_client = get_hf_client()
+        pass
 
     def _generate_reasoning(self, protocol_context: Dict[str, Any]) -> str:
         """Use LLM to generate intelligent clinical reasoning for a protocol finding."""
-        messages = [
-            {
-                "role": "system",
-                "content": (
-                    "You are a clinical protocol compliance assistant. "
-                    "Generate a concise, evidence-based explanation for why this protocol requirement matters. "
-                    "Focus on patient safety and clinical best practices. Keep it under 80 words."
-                ),
-            },
-            {
-                "role": "user",
-                "content": json.dumps(protocol_context, indent=2),
-            },
-        ]
+        system_prompt = (
+            "You are a clinical protocol compliance assistant. "
+            "Generate a concise, evidence-based explanation for why this protocol requirement matters. "
+            "Focus on patient safety and clinical best practices. Keep it under 80 words. "
+            'Respond as a JSON object of the form {"reasoning": "<your explanation>"}.'
+        )
+        user_prompt = json.dumps(protocol_context, indent=2)
 
+        # ask_llm() raises on failure (rate limit, API error, malformed JSON).
+        # We deliberately catch it HERE, not inside the adapter — this is a
+        # per-finding explanation, not the finding itself (that's computed by
+        # local rule logic above). A failure here shouldn't blow up the whole
+        # protocol check; it produces an explicit, visible degraded string
+        # rather than a value that could be mistaken for a real explanation.
         try:
-            response = self._hf_client.chat.completions.create(
-                model=HF_MODEL,
-                messages=messages,
-                temperature=0.0,
-                max_tokens=4096,
-            )
-
-            content = response.choices[0].message.content
-            return content.strip() if content else "No reasoning available."
+            result = ask_llm(system_prompt, user_prompt)
+            reasoning = result.get("reasoning")
+            return reasoning.strip() if reasoning else "No reasoning available."
         except Exception as exc:
             return f"Unable to generate reasoning: {str(exc)}"
 
     def _generate_recommendation(self, protocol_context: Dict[str, Any]) -> str:
         """Use LLM to generate actionable recommendation."""
-        messages = [
-            {
-                "role": "system",
-                "content": (
-                    "You are a clinical protocol compliance assistant. "
-                    "Generate a specific, actionable recommendation to address this protocol gap. "
-                    "Be direct and concise. Keep it under 50 words."
-                ),
-            },
-            {
-                "role": "user",
-                "content": json.dumps(protocol_context, indent=2),
-            },
-        ]
+        system_prompt = (
+            "You are a clinical protocol compliance assistant. "
+            "Generate a specific, actionable recommendation to address this protocol gap. "
+            "Be direct and concise. Keep it under 50 words. "
+            'Respond as a JSON object of the form {"recommendation": "<your recommendation>"}.'
+        )
+        user_prompt = json.dumps(protocol_context, indent=2)
 
         try:
-            response = self._hf_client.chat.completions.create(
-                model=HF_MODEL,
-                messages=messages,
-                temperature=0.0,
-                max_tokens=4096,
-            )
-
-            content = response.choices[0].message.content
-            return content.strip() if content else "No recommendation available."
+            result = ask_llm(system_prompt, user_prompt)
+            recommendation = result.get("recommendation")
+            return recommendation.strip() if recommendation else "No recommendation available."
         except Exception as exc:
             return f"Unable to generate recommendation: {str(exc)}"
 

@@ -10,7 +10,7 @@ import os
 from dataclasses import dataclass, fields
 from typing import Dict, List, Optional
 
-from hf_client import get_hf_client, HF_MODEL
+from llm_client import ask_llm
 
 
 __all__ = [
@@ -83,8 +83,6 @@ class PatientIntakeAgent:
             region=self._speech_region,
         )
 
-        self._hf_client = get_hf_client()
-
     def transcribe(self, audio_path: str) -> str:
         if not os.path.exists(audio_path):
             raise IntakeAgentError(f"Audio file not found: {audio_path}")
@@ -113,10 +111,7 @@ class PatientIntakeAgent:
         if not transcript:
             raise IntakeAgentError("Transcript is empty; cannot extract handoff details.")
 
-        messages = [
-            {
-                "role": "system",
-                "content": (
+        system_prompt = (
                     "You are a clinical documentation assistant applying STRICT CLINICAL SAFETY STANDARDS. "
                     "Extract patient handoff information and return ONLY valid JSON.\n\n"
                     
@@ -196,26 +191,14 @@ class PatientIntakeAgent:
                     "• The distinction: Patient identity verification is the PRIMARY safety barrier. Without it, no care can safely proceed. With it, care can proceed cautiously even with contextual gaps.\n\n"
                     
                     "CRITICAL: Apply the LOWEST applicable confidence level. If patient_name is missing, confidence MUST be 0.15-0.30 based on other data quality."
-                ),
-            },
-            {"role": "user", "content": transcript},
-        ]
-
-        response = self._hf_client.chat.completions.create(
-            model=HF_MODEL,
-            temperature=0.0,
-            response_format={"type": "json_object"},
-            messages=messages,
-            max_tokens=1024,
         )
 
-        content = response.choices[0].message.content
-        if not content:
-            raise IntakeAgentError("LLM returned an empty response.")
-
+        # No local try/except around ask_llm() — a failed or malformed-JSON
+        # extraction must raise IntakeAgentError-worthy failure up to the
+        # caller, not silently produce a placeholder HandoffSummary.
         try:
-            payload = json.loads(content)
-        except json.JSONDecodeError as exc:  # pragma: no cover - guard clause
+            payload = ask_llm(system_prompt, transcript)
+        except json.JSONDecodeError as exc:
             raise IntakeAgentError("LLM returned invalid JSON.") from exc
 
         return HandoffSummary.from_payload(payload)

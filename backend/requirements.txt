@@ -3,8 +3,15 @@ fastapi==0.109.0
 uvicorn[standard]==0.27.0
 pydantic==2.6.0
 
-# OpenAI / Azure OpenAI
+# OpenAI / Azure OpenAI (no longer used by any LLM call site as of the Anthropic migration —
+# left in place since nothing currently imports it, kept for low-risk removal later)
 openai>=1.52.0
+
+# Anthropic — all LLM calls route through backend/llm_client.py.
+# Model is set by llm_client.HF_MODEL (currently claude-haiku-4-5-20251001 —
+# claude-3-5-haiku-20241022 was originally specified but 404s on this account,
+# see the note at the top of llm_client.py; coordinator confirmation pending).
+anthropic>=0.34.0
 
 # Database — unpinned so pip resolves compatible gotrue/httpx versions together
 supabase

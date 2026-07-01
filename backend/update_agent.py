@@ -15,7 +15,7 @@ import json
 
 import requests
 
-from hf_client import get_hf_client, HF_MODEL
+from llm_client import ask_llm
 
 # Local imports
 from models import PatientUpdate
@@ -38,9 +38,8 @@ class UpdateAgent:
     """
     
     def __init__(self):
-        """Initialize UpdateAgent with HF Llama 3.1"""
-        self.hf_client = get_hf_client()
-        print("✅ UpdateAgent initialized with HF Llama 3.1")
+        """Initialize UpdateAgent — LLM calls go through llm_client.ask_llm()"""
+        print("✅ UpdateAgent initialized")
 
         # Deepgram Speech-to-Text
         self.deepgram_api_key = os.getenv("DEEPGRAM_API_KEY")
@@ -130,8 +129,7 @@ class UpdateAgent:
         Returns:
             Dictionary with extracted structured data
         """
-        try:
-            system_prompt = """You are a clinical data extraction assistant. 
+        system_prompt = """You are a clinical data extraction assistant.
 Extract structured information from nurse's patient updates.
 
 CRITICAL: You MUST analyze the content and determine the CORRECT event_type based on what is actually described, NOT based on what the user selected.
@@ -161,43 +159,25 @@ Extract these fields:
 
 Return ONLY valid JSON. Be precise and extract all clinical details."""
 
-            user_prompt = f"""Nurse suggested type: {update_type} (but analyze content to determine ACTUAL type)
+        user_prompt = f"""Nurse suggested type: {update_type} (but analyze content to determine ACTUAL type)
 
 Transcription:
 {transcription}
 
 Extract the structured data as JSON. Make sure event_type reflects what is ACTUALLY described in the text."""
 
-            print(f"🤖 Extracting structured data from update...")
-            
-            response = self.hf_client.chat.completions.create(
-                model=HF_MODEL,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                temperature=0.0,
-                max_tokens=1024,
-                response_format={"type": "json_object"},
-            )
-            
-            extracted_data = json.loads(response.choices[0].message.content)
-            print(f"✅ Extracted data: {extracted_data.get('event_type', 'unknown')} event")
-            
-            return extracted_data
-            
-        except Exception as e:
-            print(f"❌ Error extracting update data: {e}")
-            # Return minimal structure on error
-            return {
-                "timestamp": "current",
-                "event_type": update_type,
-                "description": transcription,
-                "mentioned_medications": [],
-                "mentioned_vitals": {},
-                "mentioned_events": []
-            }
-    
+        print(f"🤖 Extracting structured data from update...")
+
+        # No try/except — a failed extraction must surface as a failed update
+        # submission (process_update()'s outer try/except already returns
+        # success: False), not a fabricated minimal record that looks like a
+        # real extraction with everything simply defaulted to empty/current.
+        extracted_data = ask_llm(system_prompt, user_prompt)
+        print(f"✅ Extracted data: {extracted_data.get('event_type', 'unknown')} event")
+
+        return extracted_data
+
+
     def _verify_update(self, extracted_data: Dict[str, Any], patient_data: dict) -> Dict[str, Any]:
         """
         Verify update data against patient EMR.

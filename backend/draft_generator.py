@@ -12,7 +12,7 @@ from typing import Optional, Dict, Any, List
 from dotenv import load_dotenv
 import json
 
-from hf_client import get_hf_client, HF_MODEL
+from llm_client import ask_llm
 
 # Local imports
 from models import DraftHandoff, PatientUpdate
@@ -34,9 +34,8 @@ class DraftGenerator:
     """
     
     def __init__(self):
-        """Initialize DraftGenerator with HF Llama 3.1"""
-        self.hf_client = get_hf_client()
-        print("✅ DraftGenerator initialized with HF Llama 3.1")
+        """Initialize DraftGenerator — LLM calls go through llm_client.ask_llm()"""
+        print("✅ DraftGenerator initialized")
     
     def _sort_timeline_by_time(self, timeline: List[Dict]) -> List[Dict]:
         """Sort timeline events into strict chronological order after LLM generation."""
@@ -110,13 +109,12 @@ class DraftGenerator:
             List of timeline events with severity markers
         """
         import time
-        try:
-            start = time.time()
-            updates_text = ""
-            for update_info in organized_updates["all_chronological"]:
-                updates_text += f"\n• {update_info['timestamp']} - {update_info['transcription'][:200]}"
+        start = time.time()
+        updates_text = ""
+        for update_info in organized_updates["all_chronological"]:
+            updates_text += f"\n• {update_info['timestamp']} - {update_info['transcription'][:200]}"
 
-            system_prompt = """You are a clinical timeline analyzer. Generate a detailed chronological timeline with severity classification.
+        system_prompt = """You are a clinical timeline analyzer. Generate a detailed chronological timeline with severity classification.
 
 SEVERITY LEVELS — assign the HIGHEST applicable severity for each event (based on NHS NEWS2):
 🔴 RED (CRITICAL): SpO2 91% or below | HR 131 or above, or 40 or below | SBP 90 or below, or 220 or above | Temp 102.3°F or above | active bleeding | chest pain | altered consciousness | confirmed respiratory distress
@@ -159,7 +157,7 @@ Return a JSON object with a single key "timeline" whose value is the array:
   ]
 }"""
 
-            user_prompt = f"""Patient: {patient_data.get('name', 'Unknown')} (Age {patient_data.get('age', '?')})
+        user_prompt = f"""Patient: {patient_data.get('name', 'Unknown')} (Age {patient_data.get('age', '?')})
 Allergies: {', '.join(patient_data.get('allergies', [])) if patient_data.get('allergies') else 'None'}
 
 UPDATES:
@@ -167,31 +165,19 @@ UPDATES:
 
 Generate timeline with severity classification."""
 
-            response = self.hf_client.chat.completions.create(
-                model=HF_MODEL,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                temperature=0.0,
-                max_tokens=4096,
-                response_format={"type": "json_object"},
-            )
+        # No try/except here — ask_llm() raises on failure and that exception must
+        # propagate up to generate_draft()'s outer handler, not be swallowed into a
+        # fake "GRAY" timeline that looks like a successful, if boring, report.
+        result = ask_llm(system_prompt, user_prompt)
 
-            elapsed = time.time() - start
-            print(f"   📅 Timeline call: {elapsed:.2f}s")
+        elapsed = time.time() - start
+        print(f"   📅 Timeline call: {elapsed:.2f}s")
 
-            result = json.loads(response.choices[0].message.content)
-            timeline = result.get("timeline")
-            if timeline is None:
-                timeline = next((v for v in result.values() if isinstance(v, list)), [])
-            return timeline
+        timeline = result.get("timeline")
+        if timeline is None:
+            timeline = next((v for v in result.values() if isinstance(v, list)), [])
+        return timeline
 
-        except Exception as e:
-            print(f"⚠️ Timeline generation error: {e}")
-            return [{"time": u['timestamp'], "event": u['transcription'][:100], "severity": "GRAY", "icon": "⚪"}
-                    for u in organized_updates["all_chronological"]]
-    
     async def _generate_clinical_status_async(
         self,
         patient_data: dict,
@@ -207,20 +193,20 @@ Generate timeline with severity classification."""
         Returns:
             Dictionary with current_status, safety_alerts, key_changes
         """
-        try:
-            emr_medications = patient_data.get("medications", [])
-            emr_allergies = patient_data.get("allergies", [])
-            
-            updates_text = ""
-            for update_info in organized_updates["all_chronological"]:
-                updates_text += f"\n• {update_info['timestamp']} - {update_info['transcription'][:200]}"
-            
-            system_prompt = """You are a senior clinical safety analyst generating a nurse shift handoff report. Your job is to produce detailed, actionable safety alerts and pending actions that could prevent patient harm.
+        emr_medications = patient_data.get("medications", [])
+        emr_allergies = patient_data.get("allergies", [])
+
+        updates_text = ""
+        for update_info in organized_updates["all_chronological"]:
+            updates_text += f"\n• {update_info['timestamp']} - {update_info['transcription'][:200]}"
+
+        system_prompt = """You are a senior clinical safety analyst generating a nurse shift handoff report. Your job is to produce detailed, actionable safety alerts and pending actions that could prevent patient harm.
 
 MEDICATION STATUS:
-- VERIFIED (🟢): In EMR, administered safely as scheduled, no interactions, no holds
+- VERIFIED (🟢): In EMR, administered safely as scheduled, no dosing error, no allergy conflict, not held/withheld
 - NEW (🟡): Not in EMR yet, needs reconciliation
-- CONFLICTING (🔴): ANY of — drug-drug interaction | allergy conflict | dosing error | medication was HELD or WITHHELD during this shift
+- CONFLICTING (🔴): A problem with THIS SPECIFIC medication — ANY of: allergy conflict | dosing error | medication was HELD or WITHHELD during this shift
+- INTERACTION-VS-STATUS RULE: A drug-drug interaction with ANOTHER medication does NOT by itself make a medication's own status CONFLICTING. If a medication was administered correctly, as scheduled, with no dosing error, no allergy conflict, and was not held or withheld, its status stays VERIFIED even if it interacts with another drug the patient is on — document that interaction in safety_alerts only (see MANDATORY DRUG INTERACTION CHECKS below), never by changing either drug's own medication status. Example: Warfarin and Omeprazole are both given correctly as scheduled but interact via CYP2C19 — both stay VERIFIED in current_status.medications, and the interaction is reported once as a DRUG_INTERACTION safety alert.
 - HELD MEDICATION RULE: If a medication was held or withheld for ANY reason (hypotension, clinical concern, etc.), it MUST be marked CONFLICTING and the display field MUST include "— Held: [reason]" (e.g. "Amlodipine 10mg oral daily — Held: hypotension BP 98/62")
 
 VITAL SEVERITY — apply each threshold strictly per vital in isolation. Do NOT elevate a vital's colour based on the overall patient context; that belongs in Safety Alerts:
@@ -366,7 +352,7 @@ Return JSON:
   ]
 }"""
 
-            user_prompt = f"""Patient: {patient_data.get('name', 'Unknown')}
+        user_prompt = f"""Patient: {patient_data.get('name', 'Unknown')}
 Age: {patient_data.get('age') or 'Unknown'}
 Room: {patient_data.get('room_number') or patient_data.get('room') or 'Unknown'}
 Allergies: {', '.join(emr_allergies) if emr_allergies else 'None'}
@@ -377,37 +363,20 @@ SHIFT UPDATES:
 
 Analyze current clinical status, medications, vitals, safety alerts, and pending actions."""
 
-            import time
-            start = time.time()
-            response = self.hf_client.chat.completions.create(
-                model=HF_MODEL,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                temperature=0.0,
-                max_tokens=4096,
-                response_format={"type": "json_object"},
-            )
+        import time
+        start = time.time()
 
-            elapsed = time.time() - start
-            print(f"   🏥 Clinical status call: {elapsed:.2f}s")
-            
-            return json.loads(response.choices[0].message.content)
-            
-        except Exception as e:
-            print(f"⚠️ Clinical status error: {e}")
-            return {
-                "current_status": {
-                    "medications": patient_data.get("medications", []),
-                    "latest_vitals": {},
-                    "overall_condition": "See updates for details"
-                },
-                "safety_alerts": [],
-                "key_changes": ["See timeline"],
-                "pending_actions": [{"action": "Review updates", "category": "ROUTINE", "icon": "📋", "priority": 3}]
-            }
-    
+        # No try/except here — this is the call site that used to swallow errors
+        # and hand back empty safety_alerts / empty vitals / a single ROUTINE
+        # action, which looked like a successful report. ask_llm() raises instead,
+        # and that propagates up to generate_draft()'s outer handler.
+        result = ask_llm(system_prompt, user_prompt)
+
+        elapsed = time.time() - start
+        print(f"   🏥 Clinical status call: {elapsed:.2f}s")
+
+        return result
+
     async def _generate_narrative_async(
         self,
         patient_data: dict,
@@ -425,15 +394,14 @@ Analyze current clinical status, medications, vitals, safety alerts, and pending
         Returns:
             150-250 word narrative paragraph
         """
-        try:
-            updates_text = ""
-            for update_info in organized_updates["all_chronological"]:
-                updates_text += f"\n• {update_info['timestamp']} - {update_info['transcription'][:200]}"
-            
-            emr_medications = patient_data.get("medications", [])
-            emr_allergies = patient_data.get("allergies", [])
-            
-            system_prompt = """You are a senior clinical documentation specialist. Generate a comprehensive, professional narrative handoff paragraph (250-400 words) that gives the incoming nurse a complete picture of this patient's shift.
+        updates_text = ""
+        for update_info in organized_updates["all_chronological"]:
+            updates_text += f"\n• {update_info['timestamp']} - {update_info['transcription'][:200]}"
+
+        emr_medications = patient_data.get("medications", [])
+        emr_allergies = patient_data.get("allergies", [])
+
+        system_prompt = """You are a senior clinical documentation specialist. Generate a comprehensive, professional narrative handoff paragraph (250-400 words) that gives the incoming nurse a complete picture of this patient's shift.
 
 MANDATORY STRUCTURE — include every section:
 1. OPENING: "PatientName (PatientID, Room XXX, Age XX) had a [stable/eventful/concerning] shift with vital signs showing [brief summary] (HR X bpm, BP X/X mmHg, RR X, Temp X°F, SpO2 X%)." — RR (respiratory rate) MUST always be included alongside the other vitals.
@@ -456,7 +424,7 @@ TONE: Professional clinical handoff — clear, specific, no ambiguity
 
 Return JSON: {"narrative_summary": "Your 250-400 word paragraph here"}"""
 
-            user_prompt = f"""Patient: {patient_data.get('name', 'Unknown Patient')}
+        user_prompt = f"""Patient: {patient_data.get('name', 'Unknown Patient')}
 Patient ID: {patient_data.get('patient_id', 'Unknown')}
 Room: {patient_data.get('room_number') or patient_data.get('room') or 'Unknown'}
 Age: {patient_data.get('age') or 'Unknown'}
@@ -468,29 +436,18 @@ SHIFT UPDATES ({update_count} total):
 
 Generate 250-400 word narrative handoff summary."""
 
-            import time
-            start = time.time()
-            response = self.hf_client.chat.completions.create(
-                model=HF_MODEL,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                temperature=0.0,
-                max_tokens=4096,
-                response_format={"type": "json_object"},
-            )
+        import time
+        start = time.time()
 
-            elapsed = time.time() - start
-            print(f"   📝 Narrative call: {elapsed:.2f}s")
-            
-            result = json.loads(response.choices[0].message.content)
-            return result.get("narrative_summary", "See updates for details.")
-            
-        except Exception as e:
-            print(f"⚠️ Narrative generation error: {e}")
-            return f"Patient {patient_data.get('name', 'Unknown')} had {update_count} updates this shift. See timeline for details."
-    
+        # No try/except — a failed narrative must surface as a failed draft,
+        # not a generic "N updates, see timeline" string that reads as normal output.
+        result = ask_llm(system_prompt, user_prompt)
+
+        elapsed = time.time() - start
+        print(f"   📝 Narrative call: {elapsed:.2f}s")
+
+        return result.get("narrative_summary", "See updates for details.")
+
     async def _generate_handoff_summary_async(
         self,
         patient_data: dict,
@@ -508,53 +465,40 @@ Generate 250-400 word narrative handoff summary."""
         Returns:
             Dictionary with structured handoff content
         """
-        try:
-            import time
-            print(f"🤖 Generating AI-powered handoff summary (parallel mode)...")
-            start_time = time.time()
-            
-            # Sequential for HF free-tier rate limits — restore concurrent.futures when on Pro
-            timeline = await self._generate_timeline_async(patient_data, organized_updates)
-            timeline = self._sort_timeline_by_time(timeline)
-            clinical_data = await self._generate_clinical_status_async(patient_data, organized_updates)
-            narrative = await self._generate_narrative_async(patient_data, organized_updates, update_count)
+        import time
+        print(f"🤖 Generating AI-powered handoff summary...")
+        start_time = time.time()
 
-            elapsed = time.time() - start_time
-            print(f"⏱️  Sequential API calls completed in {elapsed:.2f}s")
-            
-            # Merge results into final structure
-            summary = {
-                "timeline": timeline,
-                "current_status": clinical_data.get("current_status", {}),
-                "safety_alerts": clinical_data.get("safety_alerts", []),
-                "key_changes": clinical_data.get("key_changes", []),
-                "pending_actions": clinical_data.get("pending_actions", []),
-                "narrative_summary": narrative
-            }
-            
-            print(f"✅ Generated handoff summary with {len(timeline)} timeline events (parallel optimization)")
-            
-            return summary
-            
-        except Exception as e:
-            print(f"❌ Error generating AI summary: {e}")
-            import traceback
-            traceback.print_exc()
-            # Return fallback structure
-            return {
-                "timeline": [{"time": u['timestamp'], "event": u['transcription'][:100], "severity": "GRAY", "icon": "⚪"} 
-                            for u in organized_updates["all_chronological"]],
-                "current_status": {
-                    "medications": patient_data.get("medications", []),
-                    "latest_vitals": {},
-                    "overall_condition": "See individual updates for details"
-                },
-                "safety_alerts": [],
-                "key_changes": [{"change": "See timeline for all changes", "severity": "BLUE", "icon": "🔵"}],
-                "pending_actions": [{"action": "Review all updates for pending tasks", "category": "ROUTINE", "icon": "📋", "priority": 3}],
-                "narrative_summary": f"Patient {patient_data.get('name', 'Unknown')} had {update_count} updates this shift. See timeline for details."
-            }
-    
+        # No try/except at this level either. If any of the three calls below
+        # raises, that exception is meant to propagate all the way up to
+        # generate_draft()'s outer try/except, which already returns
+        # {"success": False, ...} — this used to never fire because this
+        # function's own except block caught everything first and returned a
+        # fabricated "successful" summary (empty safety_alerts, no vitals,
+        # a single ROUTINE pending action). That silent-fallback behavior is
+        # the bug being fixed; do not reintroduce it here.
+        timeline = await self._generate_timeline_async(patient_data, organized_updates)
+        timeline = self._sort_timeline_by_time(timeline)
+        clinical_data = await self._generate_clinical_status_async(patient_data, organized_updates)
+        narrative = await self._generate_narrative_async(patient_data, organized_updates, update_count)
+
+        elapsed = time.time() - start_time
+        print(f"⏱️  API calls completed in {elapsed:.2f}s")
+
+        # Merge results into final structure
+        summary = {
+            "timeline": timeline,
+            "current_status": clinical_data.get("current_status", {}),
+            "safety_alerts": clinical_data.get("safety_alerts", []),
+            "key_changes": clinical_data.get("key_changes", []),
+            "pending_actions": clinical_data.get("pending_actions", []),
+            "narrative_summary": narrative
+        }
+
+        print(f"✅ Generated handoff summary with {len(timeline)} timeline events")
+
+        return summary
+
     async def generate_draft(self, patient_id: str, shift_id: str) -> Dict[str, Any]:
         """
         Generate a draft handoff by compiling all updates for a patient during a shift.

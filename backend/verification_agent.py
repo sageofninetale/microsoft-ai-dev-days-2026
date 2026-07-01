@@ -10,7 +10,7 @@ import os
 from dataclasses import dataclass, field, fields
 from typing import Any, Dict, List, Optional
 
-from hf_client import get_hf_client, HF_MODEL
+from llm_client import ask_llm
 
 
 __all__ = [
@@ -99,8 +99,6 @@ class VerificationAgent:
             self._supabase_key
         )
 
-        self._hf_client = get_hf_client()
-
     def _fetch_patient_record(self, patient_id: str) -> Dict[str, Any]:
         """Fetch patient record from Supabase."""
         try:
@@ -117,31 +115,23 @@ class VerificationAgent:
 
     def _generate_reasoning(self, finding_context: Dict[str, Any]) -> str:
         """Use LLM to generate intelligent reasoning for a finding."""
-        messages = [
-            {
-                "role": "system",
-                "content": (
-                    "You are a clinical safety verification assistant. "
-                    "Generate a concise, clinically-relevant explanation for the discrepancy found. "
-                    "Focus on patient safety implications. Keep it under 100 words."
-                ),
-            },
-            {
-                "role": "user",
-                "content": json.dumps(finding_context, indent=2),
-            },
-        ]
+        system_prompt = (
+            "You are a clinical safety verification assistant. "
+            "Generate a concise, clinically-relevant explanation for the discrepancy found. "
+            "Focus on patient safety implications. Keep it under 100 words. "
+            'Respond as a JSON object of the form {"reasoning": "<your explanation>"}.'
+        )
+        user_prompt = json.dumps(finding_context, indent=2)
 
+        # Caught locally (not left to propagate) — this explains one Finding
+        # among potentially many; a transient LLM failure here shouldn't abort
+        # verification of the rest. The fallback is an explicit, visible
+        # failure message in the reasoning field, never data that looks like
+        # a real explanation.
         try:
-            response = self._hf_client.chat.completions.create(
-                model=HF_MODEL,
-                messages=messages,
-                temperature=0.0,
-                max_tokens=150,
-            )
-            
-            content = response.choices[0].message.content
-            return content.strip() if content else "No reasoning available."
+            result = ask_llm(system_prompt, user_prompt)
+            reasoning = result.get("reasoning")
+            return reasoning.strip() if reasoning else "No reasoning available."
         except Exception as exc:
             return f"Unable to generate reasoning: {str(exc)}"
 
