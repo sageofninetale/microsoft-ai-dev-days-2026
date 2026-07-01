@@ -55,6 +55,7 @@ function App() {
   const timerIntervalRef = useRef(null);
   const recordingStartRef = useRef(null);
   const tickIntervalRef = useRef(null);
+  const reportRef = useRef(null); // wraps the printable report content for PDF export
 
   // Microphone permission state
   const [micPermission, setMicPermission] = useState('checking'); // 'granted', 'denied', 'checking'
@@ -125,6 +126,48 @@ function App() {
       showError('Failed to copy to clipboard');
       console.error('Copy error:', err);
     });
+  };
+
+  // Export the current handoff report to PDF — client-side only, via html2pdf.js
+  // loaded from CDN in public/index.html (same pattern as Tailwind CSS below).
+  // No backend service or API endpoint involved.
+  const downloadPDF = () => {
+    if (!reportRef.current) return;
+
+    if (typeof window.html2pdf === 'undefined') {
+      showError('PDF export library not loaded — please refresh and try again.');
+      return;
+    }
+
+    // Nurse name is already rendered inside reportRef's DOM (see the report header
+    // below), so it's captured automatically by html2canvas — no separate lookup
+    // needed here, just the patient ID for the filename.
+    const firstPatientId = patientIds.split(',')[0].trim();
+    const dateStamp = new Date().toISOString().slice(0, 10);
+    const filename = `handoff-report-${firstPatientId}-${dateStamp}.pdf`;
+
+    showToast('📄 Generating PDF…', 2000);
+
+    window.html2pdf()
+      .set({
+        margin: 0.5,
+        filename,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          // Exclude the action button row (Back to Updates / End Shift / Download PDF)
+          // from the exported PDF — only the report content itself should appear.
+          ignoreElements: (el) => el.classList && el.classList.contains('pdf-exclude'),
+        },
+        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
+      })
+      .from(reportRef.current)
+      .save()
+      .catch(err => {
+        console.error('❌ PDF export error:', err);
+        showError('Failed to generate PDF');
+      });
   };
 
   useEffect(() => {
@@ -489,6 +532,7 @@ function App() {
 
       console.log('✅ Draft generated:', response.data);
       setDraft(response.data.draft_content);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       showToast('✅ Draft generated successfully!');
     } catch (err) {
       console.error('❌ Error generating draft:', err);
@@ -1008,7 +1052,7 @@ function App() {
       {/* STAGE 3: DRAFT HANDOFF (when draft)       */}
       {/* ========================================= */}
       {draft && (
-        <div className="max-w-4xl mx-auto px-6 py-8">
+        <div className="max-w-4xl mx-auto px-6 py-8" ref={reportRef}>
           {/* Draft Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 mb-8 border-b border-slate-200">
             <div>
@@ -1018,14 +1062,24 @@ function App() {
               <p className="text-sm text-slate-500">
                 Patient: {patientIds.split(',')[0].trim()} {patientName && `— ${patientName}`}
               </p>
+              <p className="text-sm text-slate-500">
+                Handed off by: {nurses.find(n => n.id === selectedNurse)?.name || 'Unknown Nurse'}
+              </p>
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-3 pdf-exclude">
               <button
                 onClick={() => setDraft(null)}
                 className="flex items-center gap-2 px-5 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
               >
                 <span className="material-icons-outlined text-lg">arrow_back</span>
                 Back to Updates
+              </button>
+              <button
+                onClick={downloadPDF}
+                className="flex items-center gap-2 px-5 py-2.5 border border-forest-green/30 rounded-xl text-sm font-semibold text-forest-green hover:bg-forest-green/5 transition-colors"
+              >
+                <span className="material-icons-outlined text-lg">picture_as_pdf</span>
+                Download PDF
               </button>
               <button
                 onClick={() => {

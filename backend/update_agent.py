@@ -31,6 +31,23 @@ class UpdateAgentError(Exception):
     pass
 
 
+# Deepgram Keywords boosting (Nova-2 Medical) — NOT `keyterm`, which is Nova-3-only.
+# Deepgram's engine already merges multi-word numbers correctly in familiar contexts
+# (e.g. BP "120/110"), but loses confidence and splits digit-by-digit dosage numbers
+# around drug names it doesn't recognize (e.g. "Dolo 6 50" instead of "650"). Seeding
+# Keywords with the medication names the system actually knows about lets Deepgram
+# recognize the drug name confidently, which keeps the adjacent dosage number intact.
+# Kept as a hand-maintained duplicate of generate_patients.py's medication_options
+# names (that module pulls in faker + an admin Supabase client at import time, which
+# makes it unsafe to import directly into the request-path update_agent) — keep this
+# list in sync if the medication vocabulary in generate_patients.py changes.
+KNOWN_MEDICATION_KEYWORDS = [
+    "Aspirin", "Metformin", "Lisinopril", "Atorvastatin", "Metoprolol",
+    "Furosemide", "Warfarin", "Levothyroxine", "Lantus", "Humalog",
+    "Albuterol", "Amlodipine", "Omeprazole", "Gabapentin",
+]
+
+
 class UpdateAgent:
     """
     Processes individual nurse updates during a shift.
@@ -85,6 +102,10 @@ class UpdateAgent:
                 audio_bytes = f.read()
 
             print(f"🎤 Sending audio to Deepgram Nova-2 Medical...")
+            # keywords is a repeatable query param — requests repeats the key for each
+            # list item (Word:IntensifierValue). Intensifier 2 = strong boost, since
+            # these are exactly the words we most need Deepgram to recognize confidently.
+            keyword_params = [f"{name}:2" for name in KNOWN_MEDICATION_KEYWORDS]
             response = requests.post(
                 "https://api.deepgram.com/v1/listen",
                 headers={
@@ -96,6 +117,7 @@ class UpdateAgent:
                     "smart_format": "true",
                     "numerals": "true",
                     "language": "en",
+                    "keywords": keyword_params,
                 },
                 data=audio_bytes,
                 timeout=30,

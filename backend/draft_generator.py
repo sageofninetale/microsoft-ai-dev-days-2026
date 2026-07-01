@@ -32,7 +32,22 @@ class DraftGenerator:
     Compiles multiple patient updates into structured handoff drafts.
     Uses Azure OpenAI to generate intelligent narrative summaries.
     """
-    
+
+    # ------------------------------------------------------------------
+    # ISOLATED DIASTOLIC BP PENDING-ACTION THRESHOLDS (used in the clinical
+    # status prompt below — NEWS2, which this system otherwise scores against,
+    # only scores systolic BP, so an isolated elevated diastolic reading with a
+    # normal systolic reading is currently invisible to that scoring).
+    #
+    # ⚠️ PLACEHOLDER VALUES — NOT CLINICALLY VERIFIED. These two numbers were
+    # suggested by the product owner as a reasonable starting point, not signed
+    # off by a clinician. They MUST be reviewed and confirmed (or corrected) by
+    # Sakshi (clinical advisor) before this trigger is relied on in any real
+    # deployment. Do not treat these as validated clinical thresholds.
+    DIASTOLIC_BP_HIGH_THRESHOLD = 100      # mmHg — diastolic >= this, systolic normal -> HIGH priority action
+    DIASTOLIC_BP_CRITICAL_THRESHOLD = 120  # mmHg — diastolic >= this, systolic normal -> CRITICAL priority action
+    # ------------------------------------------------------------------
+
     def __init__(self):
         """Initialize DraftGenerator — LLM calls go through llm_client.ask_llm()"""
         print("✅ DraftGenerator initialized")
@@ -96,15 +111,24 @@ class DraftGenerator:
     async def _generate_timeline_async(
         self,
         patient_data: dict,
-        organized_updates: Dict[str, Any]
+        organized_updates: Dict[str, Any],
+        clinical_context: Optional[Dict[str, Any]] = None
     ) -> List[Dict[str, Any]]:
         """
         Generate timeline events with severity classification (async).
-        
+
         Args:
             patient_data: Patient EMR data
             organized_updates: Organized updates by type
-        
+            clinical_context: Optional resolved output from _generate_clinical_status_async
+                (current_status.medications + safety_alerts) — gives the timeline model
+                the same EMR reconciliation / interaction findings the clinical-status
+                call already worked out, so its existing severity rules (which already
+                reference "in EMR", "new medications not in EMR", "drug-drug
+                interactions", "held high-risk medications") have something to key off.
+                Optional/backward-compatible: if not supplied, the timeline is generated
+                exactly as before (raw updates only).
+
         Returns:
             List of timeline events with severity markers
         """
@@ -157,8 +181,33 @@ Return a JSON object with a single key "timeline" whose value is the array:
   ]
 }"""
 
+        emr_medications = patient_data.get("medications", [])
+        emr_meds_text = ', '.join([str(m) for m in emr_medications]) if emr_medications else 'None'
+
+        # Reconciliation context block — built from the clinical-status call's already-
+        # resolved output (if available), so the timeline can apply its OWN EXISTING
+        # severity rules (in EMR vs new-not-in-EMR, drug-drug interactions, held meds)
+        # against real reconciliation/interaction findings instead of guessing blind.
+        reconciliation_text = "Not available for this run."
+        if clinical_context:
+            resolved_meds = clinical_context.get("current_status", {}).get("medications", [])
+            safety_alerts = clinical_context.get("safety_alerts", [])
+            lines = []
+            for m in resolved_meds:
+                if isinstance(m, dict):
+                    lines.append(f"- {m.get('name', 'Unknown')}: {m.get('status', 'UNKNOWN')} ({m.get('display', '')})")
+            for a in safety_alerts:
+                if isinstance(a, dict):
+                    lines.append(f"- SAFETY ALERT [{a.get('type', 'UNKNOWN')}]: {a.get('message', '')}")
+            if lines:
+                reconciliation_text = "\n".join(lines)
+
         user_prompt = f"""Patient: {patient_data.get('name', 'Unknown')} (Age {patient_data.get('age', '?')})
 Allergies: {', '.join(patient_data.get('allergies', [])) if patient_data.get('allergies') else 'None'}
+EMR Medications: {emr_meds_text}
+
+RESOLVED MEDICATION STATUS & INTERACTION FINDINGS (from clinical reconciliation — use this to apply your EXISTING severity rules, e.g. a medication already found to be a new drug-drug interaction or not-yet-in-EMR should be coloured accordingly wherever it appears in the timeline):
+{reconciliation_text}
 
 UPDATES:
 {updates_text}
@@ -295,11 +344,13 @@ MANDATORY PENDING ACTION TRIGGERS — always generate these when applicable:
 4. Respiratory distress → CRITICAL action: "Escalate respiratory status to attending physician — consider increasing O2, high-flow nasal cannula, ABG, or ICU review if work of breathing worsens"
 5. Drug interaction flagged → CRITICAL action: specific monitoring step for that interaction
 6. Patient on anticoagulant with pending INR → always include INR review as CRITICAL
-
-KEY CHANGES RULES:
-- Include every medication administered or held during the shift
-- Include every abnormal vital or trending change
-- Include every procedure, test, or consultation
+""" + f"""7. Isolated elevated diastolic BP with normal systolic: diastolic {self.DIASTOLIC_BP_CRITICAL_THRESHOLD} mmHg or above → CRITICAL action: "Recheck blood pressure — diastolic reading of [X] is elevated despite normal systolic; monitor for signs of hypertensive urgency and notify prescribing clinician." | diastolic {self.DIASTOLIC_BP_HIGH_THRESHOLD}-{self.DIASTOLIC_BP_CRITICAL_THRESHOLD - 1} mmHg → HIGH action: "Recheck blood pressure — diastolic reading of [X] is elevated despite normal systolic; monitor for signs of hypertensive urgency."
+""" + """
+KEY CHANGES RULES — this section is for genuine deltas, escalations, and new findings ONLY. It is NOT a second timeline — do not restate routine events that are already fully captured in the Timeline section:
+- Do NOT include a medication here just because it was administered as scheduled/routine — that belongs in the Timeline only. Only include a medication here if something about it changed or escalated: it was held/withheld, its dose was adjusted, or it is a newly found drug-drug interaction.
+- Newly found drug-drug interactions MUST still appear here even though they are ALSO reported in Safety Alerts — Key Changes and Safety Alerts serve different audiences/purposes (Key Changes = quick scan of what changed since the last handoff; Safety Alerts = actionable clinical warnings the incoming nurse must act on).
+- Include every abnormal vital sign or clinically significant trending change (e.g. deteriorating SpO2, new hypotension)
+- Include a procedure, test, or consultation ONLY if it produced a new finding or result — a test simply being ordered or sent, with no result back yet, is a Timeline event and a Pending Action, not a Key Change
 - Include family/patient communication events
 
 Return JSON:
@@ -477,9 +528,15 @@ Generate 250-400 word narrative handoff summary."""
         # fabricated "successful" summary (empty safety_alerts, no vitals,
         # a single ROUTINE pending action). That silent-fallback behavior is
         # the bug being fixed; do not reintroduce it here.
-        timeline = await self._generate_timeline_async(patient_data, organized_updates)
-        timeline = self._sort_timeline_by_time(timeline)
+        #
+        # Clinical status now runs BEFORE the timeline (order swapped from the
+        # original sequential pipeline) so its resolved medication statuses and
+        # interaction findings can be piped into the timeline call — the timeline
+        # previously never saw EMR reconciliation/interaction context at all, so
+        # its own existing severity rules had nothing to key off.
         clinical_data = await self._generate_clinical_status_async(patient_data, organized_updates)
+        timeline = await self._generate_timeline_async(patient_data, organized_updates, clinical_context=clinical_data)
+        timeline = self._sort_timeline_by_time(timeline)
         narrative = await self._generate_narrative_async(patient_data, organized_updates, update_count)
 
         elapsed = time.time() - start_time
