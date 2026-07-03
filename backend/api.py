@@ -90,11 +90,22 @@ from database import (
     get_patient,
     get_multiple_patients,
     get_patient_updates,
-    get_draft
+    get_draft,
+    get_client_for_token,
 )
+from supabase import Client
 
 # Load environment variables
 load_dotenv()
+
+
+async def get_db(nurse: AuthedNurse = Depends(get_current_nurse)) -> Client:
+    """Per-request Supabase client scoped to the calling nurse's own JWT, so
+    RLS policies (current_nurse_id()) see the real caller instead of anon."""
+    client = get_client_for_token(nurse.token)
+    if client is None:
+        raise HTTPException(status_code=503, detail="Database is not configured on the server.")
+    return client
 
 
 # ============================================================================
@@ -450,7 +461,11 @@ async def start_shift(request: StartShiftRequest, nurse: AuthedNurse = Depends(g
 
 
 @app.get("/api/shift/active/{nurse_id}")
-async def get_nurse_active_shift(nurse_id: str, nurse: AuthedNurse = Depends(get_current_nurse)):
+async def get_nurse_active_shift(
+    nurse_id: str,
+    nurse: AuthedNurse = Depends(get_current_nurse),
+    db: Client = Depends(get_db),
+):
     """Get the caller's own active shift (a nurse may only query their own)"""
     print(f"🔍 Fetching active shift...")
 
@@ -459,7 +474,7 @@ async def get_nurse_active_shift(nurse_id: str, nurse: AuthedNurse = Depends(get
         raise HTTPException(status_code=403, detail="You may only query your own active shift.")
 
     try:
-        shift = get_active_shift(nurse.nurse_id)
+        shift = get_active_shift(nurse.nurse_id, client=db)
         
         if not shift:
             log.info("No active shift found")
@@ -485,16 +500,20 @@ async def get_nurse_active_shift(nurse_id: str, nurse: AuthedNurse = Depends(get
 
 
 @app.get("/api/patients/{shift_id}")
-async def get_shift_patients(shift_id: str, nurse: AuthedNurse = Depends(get_current_nurse)):
+async def get_shift_patients(
+    shift_id: str,
+    nurse: AuthedNurse = Depends(get_current_nurse),
+    db: Client = Depends(get_db),
+):
     """Get all patients assigned to a shift the caller owns"""
     print(f"🔍 Fetching patients for shift {shift_id}...")
 
     try:
         # Object-level authorization: the shift must belong to the caller (404 otherwise).
-        shift = require_owned_shift(nurse, shift_id)
+        shift = require_owned_shift(nurse, shift_id, client=db)
 
         # Fetch patient details
-        patients = get_multiple_patients(shift.patient_ids)
+        patients = get_multiple_patients(shift.patient_ids, client=db)
         
         log.info("Found %d patients for shift %s", len(patients), shift_id)
 

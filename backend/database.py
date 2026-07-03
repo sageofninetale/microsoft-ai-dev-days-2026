@@ -30,6 +30,24 @@ else:
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
+def get_client_for_token(token: Optional[str]) -> Optional[Client]:
+    """
+    Build a request-scoped Supabase client authenticated as the calling nurse.
+
+    Deliberately creates a NEW client rather than mutating the shared module-level
+    `supabase` client: postgrest-py's .auth(token) mutates client state in place,
+    and FastAPI can interleave concurrent requests on one event loop, so sharing a
+    client across requests would let one nurse's query run under another nurse's
+    identity if two requests overlap.
+    """
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        return None
+    client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    if token:
+        client.postgrest.auth(token)
+    return client
+
+
 # ============================================================================
 # NURSE SHIFTS
 # ============================================================================
@@ -90,22 +108,23 @@ def create_shift(
         return None
 
 
-def get_active_shift(nurse_id: str) -> Optional[NurseShift]:
+def get_active_shift(nurse_id: str, client: Optional[Client] = None) -> Optional[NurseShift]:
     """
     Get the currently active shift for a nurse.
-    
+
     Args:
         nurse_id: ID of the nurse
-    
+
     Returns:
         NurseShift object if found, None otherwise
     """
-    if not supabase:
+    db = client or supabase
+    if not db:
         print("❌ Supabase client not initialized")
         return None
-    
+
     try:
-        result = supabase.table("nurse_shifts")\
+        result = db.table("nurse_shifts")\
             .select("*")\
             .eq("nurse_id", nurse_id)\
             .eq("status", "active")\
@@ -158,22 +177,23 @@ def end_shift(shift_id: str) -> bool:
         return False
 
 
-def get_shift_by_id(shift_id: str) -> Optional[NurseShift]:
+def get_shift_by_id(shift_id: str, client: Optional[Client] = None) -> Optional[NurseShift]:
     """
     Get a shift by its ID.
-    
+
     Args:
         shift_id: ID of the shift
-    
+
     Returns:
         NurseShift object if found, None otherwise
     """
-    if not supabase:
+    db = client or supabase
+    if not db:
         print("❌ Supabase client not initialized")
         return None
-    
+
     try:
-        result = supabase.table("nurse_shifts")\
+        result = db.table("nurse_shifts")\
             .select("*")\
             .eq("id", shift_id)\
             .execute()
@@ -648,22 +668,23 @@ def get_nurse_assignments(nurse_id: str) -> List[str]:
         return []
 
 
-def get_multiple_patients(patient_ids: List[str]) -> List[dict]:
+def get_multiple_patients(patient_ids: List[str], client: Optional[Client] = None) -> List[dict]:
     """
     Get multiple patients from the existing patients table.
-    
+
     Args:
         patient_ids: List of patient IDs
-    
+
     Returns:
         List of patient data dictionaries
     """
-    if not supabase:
+    db = client or supabase
+    if not db:
         print("❌ Supabase client not initialized")
         return []
-    
+
     try:
-        result = supabase.table("patients")\
+        result = db.table("patients")\
             .select("*")\
             .in_("patient_id", patient_ids)\
             .order("patient_id")\

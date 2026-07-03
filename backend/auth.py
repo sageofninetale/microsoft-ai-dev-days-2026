@@ -25,6 +25,7 @@ from typing import Optional
 
 import jwt
 from fastapi import Header, HTTPException, status
+from supabase import Client
 
 from database import get_active_shift, get_shift_by_id, get_nurse_assignments
 from models import NurseShift
@@ -42,6 +43,7 @@ class AuthedNurse:
     nurse_id: str
     name: Optional[str] = None
     subject: Optional[str] = None  # the JWT `sub` claim (Supabase user id)
+    token: str = ""  # the raw bearer token, forwarded to the DB client so RLS sees this nurse
 
 
 def _credentials_error(detail: str = "Could not validate credentials") -> HTTPException:
@@ -90,7 +92,7 @@ def get_current_nurse(authorization: Optional[str] = Header(default=None)) -> Au
         raise _credentials_error("Token does not identify a nurse.")
 
     name = user_metadata.get("name") or app_metadata.get("nurse_name")
-    return AuthedNurse(nurse_id=str(nurse_id), name=name, subject=claims.get("sub"))
+    return AuthedNurse(nurse_id=str(nurse_id), name=name, subject=claims.get("sub"), token=token)
 
 
 # ---------------------------------------------------------------------------
@@ -106,14 +108,14 @@ def require_active_shift(nurse: AuthedNurse) -> NurseShift:
     return shift
 
 
-def require_owned_shift(nurse: AuthedNurse, shift_id: str) -> NurseShift:
+def require_owned_shift(nurse: AuthedNurse, shift_id: str, client: Optional[Client] = None) -> NurseShift:
     """
     Return the shift only if it belongs to the authenticated nurse.
 
     Returns 404 for both "does not exist" and "not yours" so callers cannot enumerate
     other nurses' shift IDs by distinguishing the responses.
     """
-    shift = get_shift_by_id(shift_id)
+    shift = get_shift_by_id(shift_id, client=client)
     if not shift or shift.nurse_id != nurse.nurse_id:
         raise HTTPException(status_code=404, detail="Shift not found.")
     return shift
