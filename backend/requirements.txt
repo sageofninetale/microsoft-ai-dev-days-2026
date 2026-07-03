@@ -10,9 +10,8 @@ pydantic==2.6.0
 # Rate limiting for the AI/transcription endpoints
 slowapi>=0.1.9
 
-# OpenAI / Azure OpenAI (no longer used by any LLM call site as of the Anthropic migration —
-# left in place since nothing currently imports it, kept for low-risk removal later)
-openai>=1.52.0
+# (Removed unused `openai` dependency — no `import openai` remains after the
+#  Anthropic migration; dead installed packages are needless attack surface.)
 
 # Anthropic — all LLM calls route through backend/llm_client.py.
 # Model is set by llm_client.HF_MODEL (currently claude-haiku-4-5-20251001 —
@@ -20,8 +19,10 @@ openai>=1.52.0
 # see the note at the top of llm_client.py; coordinator confirmation pending).
 anthropic>=0.34.0
 
-# Database — unpinned so pip resolves compatible gotrue/httpx versions together
-supabase
+# Database — pinned for reproducible builds. Was previously unpinned to let pip
+# resolve compatible gotrue/httpx versions; NEEDS LIVE VERIFICATION that this exact
+# pin still resolves those transitive deps together and the client connects.
+supabase==2.15.1
 
 # Auth — verify Supabase-issued JWTs (HS256) in the API auth dependency
 PyJWT==2.9.0
@@ -30,8 +31,9 @@ PyJWT==2.9.0
 # Bumped from 1.0.1 to clear GHSA-mf9w-mj56-hr94 (set_key symlink overwrite).
 python-dotenv>=1.2.2
 
-# Deepgram speech-to-text — HTTP client for Nova-2 Medical API
-requests
+# Deepgram speech-to-text — HTTP client for Nova-2 Medical API.
+# Pinned to 2.33.0 which clears GHSA-gc5v-m9x4-r6x2 (predictable temp path).
+requests==2.33.0
 
-# PyAV: FFmpeg Python bindings — includes compiled codecs (webm/opus decode)
-av
+# PyAV: FFmpeg Python bindings — includes compiled codecs (webm/opus decode).
+av==12.3.0

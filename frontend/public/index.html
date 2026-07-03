@@ -7,10 +7,20 @@
   <meta name="theme-color" content="#000000" />
   <meta name="description" content="CascadeAI - Intelligent Clinical Handoff System" />
   <title>CascadeAI - Clinical Handoffs</title>
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
-  <!-- html2pdf.js CDN — client-side PDF export for the handoff report view, no backend involved -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <!-- Tailwind CSS CDN.
+       NOTE: the Tailwind Play CDN serves dynamically-generated JS, so a fixed SRI
+       integrity hash is not possible (and it is explicitly not for production use).
+       For a hardened production build, install Tailwind as a build-time dependency
+       and compile the stylesheet instead of loading this script. crossorigin is set
+       so failures are reported cleanly. -- FLAGGED FOLLOW-UP (bundle for prod). -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms,typography" crossorigin="anonymous"></script>
+  <!-- html2pdf.js CDN — client-side PDF export for the handoff report view, no backend involved.
+       Pinned with a Subresource Integrity hash (from the cdnjs API) so a tampered/
+       swapped CDN file will be rejected by the browser. -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"
+    integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg=="
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"></script>
   <script>
     tailwind.config = {
       theme: {
