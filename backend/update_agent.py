@@ -4,6 +4,7 @@ Transcribes audio, extracts structured data, verifies against EMR, and saves to 
 """
 
 from __future__ import annotations
+import logging
 import os
 import re
 import uuid
@@ -15,7 +16,9 @@ import json
 
 import requests
 
-from llm_client import ask_llm
+from llm_client import ask_llm, wrap_untrusted
+
+log = logging.getLogger("cascadeai.update_agent")
 
 # Local imports
 from models import PatientUpdate
@@ -46,6 +49,31 @@ KNOWN_MEDICATION_KEYWORDS = [
     "Furosemide", "Warfarin", "Levothyroxine", "Lantus", "Humalog",
     "Albuterol", "Amlodipine", "Omeprazole", "Gabapentin",
 ]
+
+
+def _flag_possible_suppression(raw_text: str, extracted: Dict[str, Any]) -> None:
+    """
+    Heuristic prompt-injection / suppression detector.
+
+    If the raw transcript clearly mentions a known medication but the extracted
+    `mentioned_medications` is empty, mark the record as suspect (rather than trusting
+    it as a clean, medication-free update). Non-destructive: it annotates the data and
+    logs a warning; the update is still saved but is flagged for human review.
+    """
+    if not isinstance(extracted, dict):
+        return
+
+    text_lower = (raw_text or "").lower()
+    mentions_known_med = any(med.lower() in text_lower for med in KNOWN_MEDICATION_KEYWORDS)
+    extracted_meds = extracted.get("mentioned_medications") or []
+
+    if mentions_known_med and not extracted_meds:
+        extracted["_injection_suspected"] = True
+        extracted["_review_reason"] = (
+            "Raw text names a known medication but none were extracted — "
+            "possible prompt injection or extraction suppression."
+        )
+        log.warning("Possible suppression/injection: known medication in text but none extracted")
 
 
 class UpdateAgent:
@@ -181,21 +209,30 @@ Extract these fields:
 
 Return ONLY valid JSON. Be precise and extract all clinical details."""
 
+        # The transcription is untrusted (typed or ASR text) — wrap it so an attacker
+        # cannot embed instructions that steer the extractor (e.g. to zero out
+        # medications/vitals so the downstream safety check finds nothing).
         user_prompt = f"""Nurse suggested type: {update_type} (but analyze content to determine ACTUAL type)
 
 Transcription:
-{transcription}
+{wrap_untrusted(transcription)}
 
 Extract the structured data as JSON. Make sure event_type reflects what is ACTUALLY described in the text."""
 
-        print(f"🤖 Extracting structured data from update...")
+        log.info("Extracting structured data from update...")
 
         # No try/except — a failed extraction must surface as a failed update
         # submission (process_update()'s outer try/except already returns
         # success: False), not a fabricated minimal record that looks like a
         # real extraction with everything simply defaulted to empty/current.
         extracted_data = ask_llm(system_prompt, user_prompt)
-        print(f"✅ Extracted data: {extracted_data.get('event_type', 'unknown')} event")
+
+        # Defence-in-depth against prompt injection / silent suppression: if the raw
+        # text clearly names known medications but the model returned none, flag it so
+        # the update is not trusted as "clean" downstream.
+        _flag_possible_suppression(transcription, extracted_data)
+
+        log.info("Extracted %s event", extracted_data.get("event_type", "unknown"))
 
         return extracted_data
 
@@ -387,10 +424,11 @@ Extract the structured data as JSON. Make sure event_type reflects what is ACTUA
             patient_data = get_patient(patient_id)
             
             if not patient_data:
-                print(f"⚠️  Warning: Could not fetch patient {patient_id} from EMR")
+                log.warning("Could not fetch patient %s from EMR", patient_id)
                 patient_data = {}  # Continue anyway with empty EMR
             else:
-                print(f"✅ Retrieved EMR for {patient_data.get('name', 'Unknown')}")
+                # Log opaque patient id only — never the patient name (PHI).
+                log.info("Retrieved EMR for patient %s", patient_id)
             
             # Step 4: Verify update against EMR
             verification_results = self._verify_update(extracted_data, patient_data)

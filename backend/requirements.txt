@@ -1,7 +1,14 @@
 # Core dependencies for the backend API
-fastapi==0.109.0
+# fastapi>=0.115 pulls a Starlette >=0.40 that fixes the multipart memory-DoS and
+# host-header advisories flagged by pip-audit against 0.35.1 (and clears
+# fastapi PYSEC-2024-38, the python-multipart ReDoS). NEEDS LIVE VERIFICATION:
+# confirm the resolved versions install and the app still boots.
+fastapi>=0.115.0
 uvicorn[standard]==0.27.0
 pydantic==2.6.0
+
+# Rate limiting for the AI/transcription endpoints
+slowapi>=0.1.9
 
 # OpenAI / Azure OpenAI (no longer used by any LLM call site as of the Anthropic migration —
 # left in place since nothing currently imports it, kept for low-risk removal later)
@@ -20,7 +27,8 @@ supabase
 PyJWT==2.9.0
 
 # Environment variable management
-python-dotenv==1.0.1
+# Bumped from 1.0.1 to clear GHSA-mf9w-mj56-hr94 (set_key symlink overwrite).
+python-dotenv>=1.2.2
 
 # Deepgram speech-to-text — HTTP client for Nova-2 Medical API
 requests

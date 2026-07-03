@@ -5,6 +5,7 @@ Provides endpoints for shift management, patient updates, and draft generation.
 
 from __future__ import annotations
 import asyncio
+import logging
 import os
 import sys
 from pathlib import Path
@@ -24,14 +25,43 @@ if str(_this_dir) not in sys.path:
     sys.path.insert(0, str(_this_dir))
 
 # FastAPI imports
-from fastapi import FastAPI, HTTPException, Body, Depends
+from fastapi import FastAPI, HTTPException, Body, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from contextlib import asynccontextmanager
+
+# Rate limiting
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
+
+# Local imports - Config
+from config import ALLOWED_ORIGINS, DOCS_ENABLED, MAX_AUDIO_B64_CHARS, MAX_AUDIO_DECODED_BYTES
 
 # Local imports - Agents
 from update_agent import UpdateAgent
 from draft_generator import DraftGenerator
+
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO").upper(),
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
+log = logging.getLogger("cascadeai.api")
+
+
+def _rate_limit_key(request: Request) -> str:
+    """
+    Rate-limit key: the bearer token (which identifies the authenticated nurse)
+    when present, else the client IP. Because auth runs first, this is effectively
+    per-nurse for authenticated traffic.
+    """
+    auth_header = request.headers.get("authorization")
+    if auth_header:
+        return auth_header
+    return get_remote_address(request)
+
+
+limiter = Limiter(key_func=_rate_limit_key)
 
 # Local imports - Auth & object-level authorization
 from auth import (
@@ -95,18 +125,20 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
     dependencies=[Depends(get_current_nurse)],
+    # Interactive docs are off unless ENABLE_DOCS is set (keep the endpoint map
+    # unadvertised in production).
+    docs_url="/docs" if DOCS_ENABLED else None,
+    redoc_url="/redoc" if DOCS_ENABLED else None,
 )
 
-# Enable CORS for frontend
+# Rate limiting: register the limiter and a 429 handler for exceeded limits.
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Enable CORS for frontend — explicit allowlist (see backend/config.py).
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:8888",
-        "http://127.0.0.1:8888",
-        "https://happy-sand-07c137903.6.azurestaticapps.net",
-    ],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -160,7 +192,9 @@ class GenerateDraftRequest(BaseModel):
 
 
 class TranscribeAudioRequest(BaseModel):
-    audio: str  # base64 encoded audio
+    # Cap the base64 payload at the model layer so an oversized body is rejected
+    # (422) before it is ever read into memory / decoded — mitigates memory DoS.
+    audio: str = Field(..., min_length=1, max_length=MAX_AUDIO_B64_CHARS)  # base64 encoded audio
     format: str = "webm"  # audio format
 
 
@@ -182,22 +216,32 @@ async def health_check():
 
 
 @app.post("/api/transcribe")
-async def transcribe_audio(request: TranscribeAudioRequest):
+@limiter.limit("10/minute")
+async def transcribe_audio(request: Request, payload: TranscribeAudioRequest):
     """Transcribe audio using VibeVoice-ASR via Modal"""
-    print(f"🎤 Transcribing audio (format: {request.format})...")
+    log.info("Transcribing audio (format=%s)", payload.format)
 
     try:
         import base64
+        import binascii
         import tempfile
         import os
         import subprocess
         # UpdateAgent already imported at module level
 
-        # Decode base64 audio — keep bytes in memory for Whisper fallback
-        audio_bytes = base64.b64decode(request.audio)
+        # Decode base64 audio — keep bytes in memory for Whisper fallback.
+        try:
+            audio_bytes = base64.b64decode(payload.audio, validate=True)
+        except (binascii.Error, ValueError):
+            raise HTTPException(status_code=400, detail="Audio is not valid base64.")
+
+        # Bound the DECODED size too (the base64 char cap is enforced on the model),
+        # so a valid-but-huge payload cannot exhaust memory downstream.
+        if len(audio_bytes) > MAX_AUDIO_DECODED_BYTES:
+            raise HTTPException(status_code=413, detail="Audio payload too large.")
 
         # Save to temporary file
-        with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{request.format}') as temp_audio:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{payload.format}') as temp_audio:
             temp_audio.write(audio_bytes)
             temp_audio_path = temp_audio.name
 
@@ -206,10 +250,10 @@ async def transcribe_audio(request: TranscribeAudioRequest):
         try:
             # Convert to WAV if not already WAV (needed for Azure Speech SDK)
             audio_path_to_use = None
-            if request.format.lower() != 'wav':
-                wav_path = temp_audio_path.replace(f'.{request.format}', '.wav')
+            if payload.format.lower() != 'wav':
+                wav_path = temp_audio_path.replace(f'.{payload.format}', '.wav')
 
-                print(f"🔄 Converting {request.format} to WAV...")
+                print(f"🔄 Converting {payload.format} to WAV...")
 
                 try:
                     result = subprocess.run(
@@ -290,11 +334,12 @@ async def transcribe_audio(request: TranscribeAudioRequest):
             if wav_path and os.path.exists(wav_path):
                 os.unlink(wav_path)
 
-    except Exception as e:
-        import traceback
-        print(f"❌ Transcription error: {e}")
-        print(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=f"Transcription failed: {str(e)}")
+    except HTTPException:
+        raise
+    except Exception:
+        # Log full detail server-side; return a generic message to the caller.
+        log.exception("Transcription error")
+        raise HTTPException(status_code=500, detail="Transcription failed.")
 
 
 @app.get("/api/nurses")
@@ -327,9 +372,9 @@ async def get_patient_info(patient_id: str, nurse: AuthedNurse = Depends(get_cur
 
         if not patient:
             raise HTTPException(status_code=404, detail=f"Patient {patient_id} not found")
-        
-        print(f"✅ Found patient: {patient.get('name')}")
-        
+
+        log.info("Fetched patient %s", patient_id)
+
         return {
             "patient_id": patient.get('patient_id'),
             "name": patient.get('name'),
@@ -337,12 +382,12 @@ async def get_patient_info(patient_id: str, nurse: AuthedNurse = Depends(get_cur
             "room_number": patient.get('room_number'),
             "primary_diagnosis": patient.get('primary_diagnosis')
         }
-        
+
     except HTTPException:
         raise
-    except Exception as e:
-        print(f"❌ Error fetching patient: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch patient: {str(e)}")
+    except Exception:
+        log.exception("Error fetching patient %s", patient_id)
+        raise HTTPException(status_code=500, detail="Failed to fetch patient.")
 
 
 @app.post("/api/shift/start", status_code=201)
@@ -389,9 +434,11 @@ async def start_shift(request: StartShiftRequest, nurse: AuthedNurse = Depends(g
             "status": shift.status
         }
         
-    except Exception as e:
-        print(f"❌ Error starting shift: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to start shift: {str(e)}")
+    except HTTPException:
+        raise
+    except Exception:
+        log.exception("Error starting shift")
+        raise HTTPException(status_code=500, detail="Failed to start shift.")
 
 
 @app.get("/api/shift/active/{nurse_id}")
@@ -407,11 +454,11 @@ async def get_nurse_active_shift(nurse_id: str, nurse: AuthedNurse = Depends(get
         shift = get_active_shift(nurse.nurse_id)
         
         if not shift:
-            print(f"⚠️  No active shift found for {nurse_id}")
+            log.info("No active shift found")
             return None
-        
-        print(f"✅ Found active shift: {shift.id}")
-        
+
+        log.info("Found active shift %s", shift.id)
+
         return {
             "shift_id": shift.id,
             "nurse_id": shift.nurse_id,
@@ -421,10 +468,12 @@ async def get_nurse_active_shift(nurse_id: str, nurse: AuthedNurse = Depends(get
             "start_time": shift.start_time.isoformat(),
             "status": shift.status
         }
-        
-    except Exception as e:
-        print(f"❌ Error fetching active shift: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch active shift: {str(e)}")
+
+    except HTTPException:
+        raise
+    except Exception:
+        log.exception("Error fetching active shift")
+        raise HTTPException(status_code=500, detail="Failed to fetch active shift.")
 
 
 @app.get("/api/patients/{shift_id}")
@@ -439,33 +488,34 @@ async def get_shift_patients(shift_id: str, nurse: AuthedNurse = Depends(get_cur
         # Fetch patient details
         patients = get_multiple_patients(shift.patient_ids)
         
-        print(f"✅ Found {len(patients)} patients")
-        
+        log.info("Found %d patients for shift %s", len(patients), shift_id)
+
         return patients
-        
+
     except HTTPException:
         raise
-    except Exception as e:
-        print(f"❌ Error fetching patients: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch patients: {str(e)}")
+    except Exception:
+        log.exception("Error fetching patients for shift %s", shift_id)
+        raise HTTPException(status_code=500, detail="Failed to fetch patients.")
 
 
 @app.post("/api/patient/{patient_id}/update", status_code=201)
+@limiter.limit("30/minute")
 async def add_patient_update(
+    request: Request,
     patient_id: str,
-    request: PatientUpdateRequest,
+    payload: PatientUpdateRequest,
     nurse: AuthedNurse = Depends(get_current_nurse),
 ):
     """Add a new update for a patient in the caller's own active shift"""
-    print(f"📝 Adding update for patient {patient_id}...")
-    print(f"   Type: {request.update_type}")
-    print(f"   Shift: {request.shift_id}")
+    log.info("Adding update for patient %s (type=%s, shift=%s)",
+             patient_id, payload.update_type, payload.shift_id)
 
     # Object-level authorization before any processing:
     #  - the shift must belong to the authenticated nurse (404 otherwise),
     #  - it must still be active,
     #  - and the patient must be assigned to that shift.
-    shift = require_owned_shift(nurse, request.shift_id)
+    shift = require_owned_shift(nurse, payload.shift_id)
     if not shift.is_active():
         raise HTTPException(status_code=409, detail="Shift is not active.")
     require_patient_in_shift(patient_id, shift)
@@ -474,35 +524,35 @@ async def add_patient_update(
         agent = get_update_agent()
 
         # Determine if audio or text
-        if request.audio:
+        if payload.audio:
             # TODO: Decode base64 audio and save to temp file
             # For now, return error
             raise HTTPException(status_code=501, detail="Audio updates not yet implemented")
 
-        if not request.text:
+        if not payload.text:
             raise HTTPException(status_code=400, detail="Either 'text' or 'audio' must be provided")
 
         # Process the update — nurse identity comes from the verified token, not the body.
         result = agent.process_update(
-            audio_or_text=request.text,
+            audio_or_text=payload.text,
             patient_id=patient_id,
             nurse_id=nurse.nurse_id,
-            shift_id=request.shift_id,
-            update_type=request.update_type,
+            shift_id=payload.shift_id,
+            update_type=payload.update_type,
             is_audio=False
         )
-        
+
         if not result.get("success"):
             error_msg = result.get("message", "Update processing failed")
             # Check if it's a shift ID issue
             if "database" in error_msg.lower() or "save" in error_msg.lower():
                 raise HTTPException(
-                    status_code=400, 
+                    status_code=400,
                     detail="Invalid shift ID. Please refresh the page and start a new shift."
                 )
-            raise HTTPException(status_code=500, detail=error_msg)
-        
-        print(f"✅ Update processed: {result.get('update_id')}")
+            raise HTTPException(status_code=500, detail="Update processing failed.")
+
+        log.info("Update processed: %s", result.get("update_id"))
         
         return {
             "success": True,
@@ -515,9 +565,9 @@ async def add_patient_update(
         
     except HTTPException:
         raise
-    except Exception as e:
-        print(f"❌ Error processing update: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to process update: {str(e)}")
+    except Exception:
+        log.exception("Error processing update for patient %s", patient_id)
+        raise HTTPException(status_code=500, detail="Failed to process update.")
 
 
 @app.get("/api/patient/{patient_id}/updates/{shift_id}")
@@ -527,7 +577,7 @@ async def get_patient_shift_updates(
     nurse: AuthedNurse = Depends(get_current_nurse),
 ):
     """Get all updates for a patient during a shift the caller owns"""
-    print(f"🔍 Fetching updates for patient {patient_id} in shift {shift_id}...")
+    log.info("Fetching updates for patient %s in shift %s", patient_id, shift_id)
 
     # Object-level authorization: shift must be the caller's and patient must be in it.
     shift = require_owned_shift(nurse, shift_id)
@@ -535,8 +585,8 @@ async def get_patient_shift_updates(
 
     try:
         updates = get_patient_updates(patient_id, shift_id)
-        
-        print(f"✅ Found {len(updates)} updates")
+
+        log.info("Found %d updates", len(updates))
         
         # Convert to dict format
         updates_data = []
@@ -552,48 +602,51 @@ async def get_patient_shift_updates(
             })
         
         return updates_data
-        
-    except Exception as e:
-        print(f"❌ Error fetching updates: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch updates: {str(e)}")
+
+    except HTTPException:
+        raise
+    except Exception:
+        log.exception("Error fetching updates for patient %s", patient_id)
+        raise HTTPException(status_code=500, detail="Failed to fetch updates.")
 
 
 @app.post("/api/patient/{patient_id}/draft", status_code=201)
+@limiter.limit("6/minute")
 async def generate_patient_draft(
+    request: Request,
     patient_id: str,
-    request: GenerateDraftRequest,
+    payload: GenerateDraftRequest,
     nurse: AuthedNurse = Depends(get_current_nurse),
 ):
     """Generate draft handoff for a patient in the caller's own shift"""
-    print(f"📋 Generating draft for patient {patient_id}...")
-    print(f"   Shift: {request.shift_id}")
+    log.info("Generating draft for patient %s (shift=%s)", patient_id, payload.shift_id)
 
     # Object-level authorization before triggering (billable) LLM calls.
-    shift = require_owned_shift(nurse, request.shift_id)
+    shift = require_owned_shift(nurse, payload.shift_id)
     require_patient_in_shift(patient_id, shift)
 
     try:
         # Check if there are any updates first
-        updates = get_patient_updates(patient_id, request.shift_id)
-        
+        updates = get_patient_updates(patient_id, payload.shift_id)
+
         if not updates or len(updates) == 0:
             raise HTTPException(
-                status_code=400, 
+                status_code=400,
                 detail="No updates found for this patient. Please add at least one update before generating a draft."
             )
-        
+
         generator = get_draft_generator()
-        
+
         # Generate draft
         result = await generator.generate_draft(
             patient_id=patient_id,
-            shift_id=request.shift_id
+            shift_id=payload.shift_id
         )
-        
+
         if not result.get("success"):
-            raise HTTPException(status_code=500, detail=result.get("message", "Draft generation failed"))
-        
-        print(f"✅ Draft generated: {result.get('draft_id')}")
+            raise HTTPException(status_code=500, detail="Draft generation failed.")
+
+        log.info("Draft generated: %s", result.get("draft_id"))
         
         return {
             "success": True,
@@ -605,11 +658,9 @@ async def generate_patient_draft(
         
     except HTTPException:
         raise
-    except Exception as e:
-        import traceback
-        print(f"❌ Error generating draft: {e}")
-        print(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=f"Failed to generate draft: {str(e)}")
+    except Exception:
+        log.exception("Error generating draft for patient %s", patient_id)
+        raise HTTPException(status_code=500, detail="Failed to generate draft.")
 
 
 @app.get("/api/patient/{patient_id}/draft/{shift_id}")
@@ -619,7 +670,7 @@ async def get_patient_draft(
     nurse: AuthedNurse = Depends(get_current_nurse),
 ):
     """Retrieve existing draft for a patient in a shift the caller owns"""
-    print(f"🔍 Fetching draft for patient {patient_id} in shift {shift_id}...")
+    log.info("Fetching draft for patient %s in shift %s", patient_id, shift_id)
 
     # Object-level authorization: shift must be the caller's and patient must be in it.
     shift = require_owned_shift(nurse, shift_id)
@@ -627,13 +678,13 @@ async def get_patient_draft(
 
     try:
         draft = get_draft(patient_id, shift_id)
-        
+
         if not draft:
-            print(f"⚠️  No draft found")
+            log.info("No draft found for patient %s", patient_id)
             return None
-        
-        print(f"✅ Found draft: {draft.id}")
-        
+
+        log.info("Found draft %s", draft.id)
+
         return {
             "draft_id": draft.id,
             "patient_id": draft.patient_id,
@@ -643,10 +694,12 @@ async def get_patient_draft(
             "last_updated": draft.last_updated.isoformat() if hasattr(draft.last_updated, 'isoformat') else str(draft.last_updated),
             "status": draft.status
         }
-        
-    except Exception as e:
-        print(f"❌ Error fetching draft: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch draft: {str(e)}")
+
+    except HTTPException:
+        raise
+    except Exception:
+        log.exception("Error fetching draft for patient %s", patient_id)
+        raise HTTPException(status_code=500, detail="Failed to fetch draft.")
 
 
 # ============================================================================

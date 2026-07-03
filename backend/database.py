@@ -4,6 +4,7 @@ Handles all Supabase interactions for shifts, updates, drafts, and final handoff
 """
 
 from __future__ import annotations
+import logging
 import os
 import uuid
 from datetime import datetime, date
@@ -12,6 +13,8 @@ from dotenv import load_dotenv
 from supabase import create_client, Client
 
 from models import NurseShift, PatientUpdate, DraftHandoff, FinalHandoff
+
+log = logging.getLogger("cascadeai.db")
 
 # Load environment variables
 load_dotenv()
@@ -75,10 +78,11 @@ def create_shift(
         result = supabase.table("nurse_shifts").insert(shift.to_dict()).execute()
         
         if result.data:
-            print(f"✅ Created shift {shift_id} for {nurse_name}")
+            # Log the opaque shift id only — never the nurse name (PHI/staff identity).
+            log.info("Created shift %s", shift_id)
             return shift
         else:
-            print(f"❌ Failed to create shift for {nurse_name}")
+            log.warning("Failed to create shift %s", shift_id)
             return None
             
     except Exception as e:
