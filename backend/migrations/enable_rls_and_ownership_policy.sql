@@ -53,7 +53,7 @@ CREATE INDEX IF NOT EXISTS idx_assignments_nurse ON assignments(nurse_id);
 -- Adjust this to match how your tokens carry the nurse identity. This default
 -- reads a top-level `nurse_id` claim and falls back to the auth user id.
 CREATE OR REPLACE FUNCTION current_nurse_id() RETURNS text
-LANGUAGE sql STABLE AS $$
+LANGUAGE sql STABLE SECURITY INVOKER SET search_path = public, pg_temp AS $$
     SELECT COALESCE(
         current_setting('request.jwt.claims', true)::jsonb ->> 'nurse_id',
         auth.uid()::text
@@ -62,8 +62,15 @@ $$;
 
 -- ----------------------------------------------------------------------------
 -- 2. Undo the over-broad grants from hide_original_patients_table.sql
+--    Supabase grants anon/authenticated broad table privileges by default and
+--    relies on RLS as the actual gate, so anon gets its privileges stripped
+--    entirely here (it should never touch patient data), not just SELECT.
 -- ----------------------------------------------------------------------------
-REVOKE SELECT ON patients FROM anon;
+REVOKE ALL ON patients        FROM anon;
+REVOKE ALL ON patient_updates FROM anon;
+REVOKE ALL ON draft_handoffs  FROM anon;
+REVOKE ALL ON nurse_shifts    FROM anon;
+REVOKE ALL ON sent_handoffs   FROM anon;
 REVOKE SELECT ON patients FROM authenticated;
 -- (The patients_ordered view, if present, inherits access from the underlying
 --  table under RLS; revoke direct grants on it too if it was granted.)
@@ -77,7 +84,18 @@ ALTER TABLE patients        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE patient_updates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE draft_handoffs  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE nurse_shifts    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sent_handoffs   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE assignments     ENABLE ROW LEVEL SECURITY;
+
+-- Drop the pre-existing wide-open policies (FOR ALL USING (true) TO anon) that
+-- get_advisors flagged as rls_policy_always_true. Without this, the new
+-- restrictive policies below are simply OR'd with the old permissive one and
+-- access stays wide open.
+DROP POLICY IF EXISTS anon_full_access ON patients;
+DROP POLICY IF EXISTS anon_full_access ON patient_updates;
+DROP POLICY IF EXISTS anon_full_access ON draft_handoffs;
+DROP POLICY IF EXISTS anon_full_access ON nurse_shifts;
+DROP POLICY IF EXISTS anon_full_access ON sent_handoffs;
 
 -- ----------------------------------------------------------------------------
 -- 4. Policies — a nurse may only touch patients assigned to them
@@ -137,6 +155,20 @@ CREATE POLICY nurse_rw_assigned_drafts ON draft_handoffs
     )
     WITH CHECK (
         patient_id IN (
+            SELECT a.patient_id FROM assignments a
+            WHERE a.nurse_id = current_nurse_id()
+        )
+    );
+
+-- sent_handoffs: a nurse may read handoffs sent to them, or for a patient
+-- currently assigned to them. Read-only for nurses; writes come from the
+-- backend service role only (recording a handoff that was sent/received).
+DROP POLICY IF EXISTS nurse_reads_relevant_sent_handoffs ON sent_handoffs;
+CREATE POLICY nurse_reads_relevant_sent_handoffs ON sent_handoffs
+    FOR SELECT TO authenticated
+    USING (
+        to_nurse_id = current_nurse_id()
+        OR patient_id IN (
             SELECT a.patient_id FROM assignments a
             WHERE a.nurse_id = current_nurse_id()
         )

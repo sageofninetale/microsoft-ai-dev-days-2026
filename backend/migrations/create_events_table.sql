@@ -62,7 +62,7 @@ CREATE INDEX IF NOT EXISTS idx_events_type     ON events(event_type, created_at)
 -- 2. Append-only enforcement (applies to service_role too)
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION prevent_event_mutation() RETURNS trigger
-LANGUAGE plpgsql AS $$
+LANGUAGE plpgsql SECURITY INVOKER SET search_path = public, pg_temp AS $$
 BEGIN
     RAISE EXCEPTION 'events is append-only: % is not allowed', TG_OP;
 END;
@@ -73,8 +73,13 @@ CREATE TRIGGER events_immutable
     BEFORE UPDATE OR DELETE ON events
     FOR EACH ROW EXECUTE FUNCTION prevent_event_mutation();
 
--- Belt-and-braces for non-service roles as well:
-REVOKE UPDATE, DELETE, TRUNCATE ON events FROM anon;
+-- Belt-and-braces for non-service roles as well. anon gets ALL revoked (not
+-- just UPDATE/DELETE/TRUNCATE) because this project auto-grants ALL to anon
+-- on every new table via default ACLs (confirmed via pg_default_acl) -- the
+-- same mechanism that produced the original anon_full_access exposure.
+-- RLS already blocks anon (no policy targets it) but should not be the only
+-- thing standing between anon and this table.
+REVOKE ALL ON events FROM anon;
 REVOKE UPDATE, DELETE, TRUNCATE ON events FROM authenticated;
 
 -- ----------------------------------------------------------------------------
