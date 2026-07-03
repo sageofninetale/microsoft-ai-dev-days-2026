@@ -89,38 +89,20 @@ RAW_UPDATES = [
 ]
 
 # ── NEWS2 vital thresholds ─────────────────────────────────────────────────────
+# SINGLE SOURCE OF TRUTH (trust stack Phase 2c): the threshold table lives in
+# backend/clinical_rules.py and is shared by the runtime risk pipeline, this
+# test suite, and the eval-pack graders. The local lambda copy that used to
+# sit here (and was never actually invoked — expected severities were
+# hardcoded) is gone; expected severities are now DERIVED from the rule table,
+# so a table change cannot silently diverge from what this suite asserts.
 
-NEWS2 = {
-    "hr": {
-        "RED":    lambda v: v >= 131 or v <= 40,
-        "ORANGE": lambda v: (111 <= v <= 130) or (41 <= v <= 50),
-        "YELLOW": lambda v: (91 <= v <= 110) or (51 <= v <= 60),
-        "GREEN":  lambda v: 61 <= v <= 90,
-    },
-    "bp_sys": {
-        "RED":    lambda v: v <= 90 or v >= 220,
-        "ORANGE": lambda v: 91 <= v <= 100,
-        "YELLOW": lambda v: 101 <= v <= 110,
-        "GREEN":  lambda v: 111 <= v <= 219,
-    },
-    "temp_f": {
-        "RED":    lambda v: v >= 102.3 or v <= 95.0,
-        "YELLOW": lambda v: 100.4 <= v <= 102.2,
-        "GREEN":  lambda v: 97.9 <= v <= 100.3,
-    },
-    "spo2": {
-        "RED":    lambda v: v <= 91,
-        "ORANGE": lambda v: 92 <= v <= 93,
-        "YELLOW": lambda v: 94 <= v <= 95,
-        "GREEN":  lambda v: v >= 96,
-    },
-}
+from clinical_rules import NEWS2_THRESHOLDS, classify_vital  # noqa: F401 (table re-exported for graders)
 
 EXPECTED_VITALS = {
-    "hr":    {"value": 112,   "expected_severity": "ORANGE"},
-    "bp":    {"value": 98,    "expected_severity": "ORANGE"},  # systolic
-    "temp":  {"value": 100.4, "expected_severity": "YELLOW"},
-    "spo2":  {"value": 91,    "expected_severity": "RED"},
+    "hr":    {"value": 112,   "expected_severity": classify_vital("hr", 112)},
+    "bp":    {"value": 98,    "expected_severity": classify_vital("bp_sys", 98)},  # systolic
+    "temp":  {"value": 100.4, "expected_severity": classify_vital("temp_f", 100.4)},
+    "spo2":  {"value": 91,    "expected_severity": classify_vital("spo2", 91)},
 }
 
 

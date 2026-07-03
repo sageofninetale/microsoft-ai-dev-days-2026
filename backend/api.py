@@ -42,6 +42,11 @@ from config import ALLOWED_ORIGINS, DOCS_ENABLED, MAX_AUDIO_B64_CHARS, MAX_AUDIO
 from update_agent import UpdateAgent
 from draft_generator import DraftGenerator
 
+# Local imports - Risk pipeline (trust stack Phase 2): wires the previously
+# orphaned ProtocolAgent + the 20/40/40 risk scorer into this live path.
+import risk_pipeline
+from database import update_draft
+
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO").upper(),
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
@@ -556,14 +561,33 @@ async def add_patient_update(
             raise HTTPException(status_code=500, detail="Update processing failed.")
 
         log.info("Update processed: %s", result.get("update_id"))
-        
+
+        # Trust stack Phase 2a: ProtocolAgent + deterministic NEWS2 + the
+        # ported 20/40/40 risk scorer now run on every live update. A failure
+        # inside the assessment must not lose an already-saved update, so it
+        # degrades to an explicit "unavailable" marker (never a fake score).
+        try:
+            risk_assessment = risk_pipeline.assess_update(
+                result.get("extracted_data") or {},
+                get_patient(patient_id) or {},
+                {"issues": result.get("verification_issues", []),
+                 "emr_verified": result.get("emr_verified")},
+                shift_id=payload.shift_id, patient_id=patient_id,
+                update_id=result.get("update_id"), nurse_id=nurse.nurse_id,
+            )
+        except Exception:
+            log.exception("Risk assessment failed for update %s", result.get("update_id"))
+            risk_assessment = {"available": False,
+                               "message": "Risk assessment unavailable — review manually."}
+
         return {
             "success": True,
             "update_id": result.get("update_id"),
             "transcription": result.get("transcription"),
             "extracted_data": result.get("extracted_data"),
             "emr_verified": result.get("emr_verified"),
-            "verification_issues": result.get("verification_issues", [])
+            "verification_issues": result.get("verification_issues", []),
+            "risk_assessment": risk_assessment
         }
         
     except HTTPException:
@@ -650,13 +674,47 @@ async def generate_patient_draft(
             raise HTTPException(status_code=500, detail="Draft generation failed.")
 
         log.info("Draft generated: %s", result.get("draft_id"))
-        
+
+        # Trust stack Phase 2d — risk gate. The final draft state is scored
+        # (protocol compliance + aggregated verification issues + confidence,
+        # 20/40/40) and a score at/above the threshold forces the draft to be
+        # presented as "⚠ NEEDS ATTENTION" with its priority-action list —
+        # never as a clean report. The annotation is persisted onto the saved
+        # draft so the review UI reads the same thing this response returns.
+        draft_content = result.get("draft_content") or {}
+        try:
+            attention = risk_pipeline.assess_draft(
+                draft_content,
+                get_patient(patient_id) or {},
+                updates,
+                shift_id=payload.shift_id, patient_id=patient_id,
+                nurse_id=nurse.nurse_id, draft_id=result.get("draft_id"),
+            )
+        except Exception:
+            log.exception("Risk gate failed for draft %s", result.get("draft_id"))
+            # Fail SAFE for a clinical gate: an unscoreable draft is flagged
+            # for attention, not waved through as clean.
+            attention = {
+                "needs_attention": True,
+                "banner": "⚠ NEEDS ATTENTION",
+                "risk_score": None,
+                "risk_level": "UNSCORED",
+                "priority_actions": ["Risk gate failed to run — review this draft manually."],
+            }
+
+        draft_content["attention"] = attention
+        if result.get("draft_id"):
+            # Persist the annotated content; failure to persist must not lose
+            # the response annotation (update_draft already logs its own errors).
+            update_draft(result["draft_id"], draft_content, result.get("update_count") or len(updates))
+
         return {
             "success": True,
             "draft_id": result.get("draft_id"),
             "patient_id": patient_id,
             "update_count": result.get("update_count"),
-            "draft_content": result.get("draft_content")
+            "draft_content": draft_content,
+            "attention": attention
         }
         
     except HTTPException:

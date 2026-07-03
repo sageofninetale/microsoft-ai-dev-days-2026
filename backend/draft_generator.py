@@ -44,13 +44,15 @@ class DraftGenerator:
     # only scores systolic BP, so an isolated elevated diastolic reading with a
     # normal systolic reading is currently invisible to that scoring).
     #
-    # ⚠️ PLACEHOLDER VALUES — NOT CLINICALLY VERIFIED. These two numbers were
-    # suggested by the product owner as a reasonable starting point, not signed
-    # off by a clinician. They MUST be reviewed and confirmed (or corrected) by
-    # Sakshi (clinical advisor) before this trigger is relied on in any real
-    # deployment. Do not treat these as validated clinical thresholds.
-    DIASTOLIC_BP_HIGH_THRESHOLD = 100      # mmHg — diastolic >= this, systolic normal -> HIGH priority action
-    DIASTOLIC_BP_CRITICAL_THRESHOLD = 120  # mmHg — diastolic >= this, systolic normal -> CRITICAL priority action
+    # SINGLE SOURCE OF TRUTH: the numbers now live in backend/clinical_rules.py
+    # (promoted there in trust stack Phase 2c so the runtime rule table, this
+    # prompt, and the test/eval graders all read the same values). They remain
+    # ⚠️ PLACEHOLDERS — needs Sakshi clinical sign-off; change them in
+    # clinical_rules.py only.
+    from clinical_rules import (  # class-level aliases keep the prompt f-strings unchanged
+        DIASTOLIC_BP_HIGH_THRESHOLD,
+        DIASTOLIC_BP_CRITICAL_THRESHOLD,
+    )
     # ------------------------------------------------------------------
 
     def __init__(self):
