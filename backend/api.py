@@ -24,7 +24,7 @@ if str(_this_dir) not in sys.path:
     sys.path.insert(0, str(_this_dir))
 
 # FastAPI imports
-from fastapi import FastAPI, HTTPException, Body
+from fastapi import FastAPI, HTTPException, Body, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
@@ -32,6 +32,17 @@ from contextlib import asynccontextmanager
 # Local imports - Agents
 from update_agent import UpdateAgent
 from draft_generator import DraftGenerator
+
+# Local imports - Auth & object-level authorization
+from auth import (
+    AuthedNurse,
+    get_current_nurse,
+    require_active_shift,
+    require_owned_shift,
+    require_patient_in_shift,
+    require_patient_assigned,
+    filter_to_assigned,
+)
 
 # Local imports - Database
 from database import (
@@ -73,12 +84,17 @@ async def lifespan(app: FastAPI):
     print("="*60 + "\n")
 
 
-# Initialize FastAPI app
+# Initialize FastAPI app.
+# The global dependency on get_current_nurse means EVERY route requires a valid
+# Supabase JWT (401 before any handler logic). Handlers that need the caller's
+# identity re-declare `nurse: AuthedNurse = Depends(get_current_nurse)`; FastAPI
+# resolves the dependency once per request, so this is not a double check.
 app = FastAPI(
     title="CascadeAI API",
     description="Intelligent clinical handoff system with AI-powered patient updates and draft generation",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
+    dependencies=[Depends(get_current_nurse)],
 )
 
 # Enable CORS for frontend
@@ -124,15 +140,16 @@ def get_draft_generator() -> DraftGenerator:
 # ============================================================================
 
 class StartShiftRequest(BaseModel):
-    nurse_id: str
-    nurse_name: str
+    # nurse_id / nurse_name are intentionally NOT accepted from the client — the acting
+    # nurse is derived from the authenticated JWT. Accepting them from the body allowed
+    # any caller to impersonate any nurse.
     shift_type: str  # day, night, evening
     patient_ids: List[str]
 
 
 class PatientUpdateRequest(BaseModel):
+    # nurse_id is intentionally NOT accepted from the client — see StartShiftRequest.
     shift_id: str
-    nurse_id: str
     update_type: str  # medication, vital_signs, procedure, general
     text: Optional[str] = None
     audio: Optional[str] = None  # base64 encoded audio
@@ -298,13 +315,16 @@ async def get_nurses():
 
 
 @app.get("/api/patient/{patient_id}/info")
-async def get_patient_info(patient_id: str):
-    """Get basic patient information"""
+async def get_patient_info(patient_id: str, nurse: AuthedNurse = Depends(get_current_nurse)):
+    """Get basic patient information (only for a patient assigned to the caller's active shift)"""
     print(f"🔍 Fetching info for patient {patient_id}...")
-    
+
+    # Object-level authorization: the patient must be assigned to the caller's active shift.
+    require_patient_assigned(nurse, patient_id)
+
     try:
         patient = get_patient(patient_id)
-        
+
         if not patient:
             raise HTTPException(status_code=404, detail=f"Patient {patient_id} not found")
         
@@ -326,22 +346,34 @@ async def get_patient_info(patient_id: str):
 
 
 @app.post("/api/shift/start", status_code=201)
-async def start_shift(request: StartShiftRequest):
-    """Start a new shift for a nurse"""
-    print(f"🏥 Starting shift for {request.nurse_name}...")
+async def start_shift(request: StartShiftRequest, nurse: AuthedNurse = Depends(get_current_nurse)):
+    """Start a new shift for the authenticated nurse over their assigned patients only"""
+    print(f"🏥 Starting shift...")
     print(f"   Type: {request.shift_type}")
-    print(f"   Patients: {len(request.patient_ids)}")
-    
+    print(f"   Patients requested: {len(request.patient_ids)}")
+
+    # Workflow / business-logic guard: a nurse may only open a shift over patients that
+    # are actually assigned to them. Requested-but-unassigned patient_ids are dropped;
+    # if that leaves nothing, refuse rather than creating an all-access shift.
+    authorized_patient_ids = filter_to_assigned(nurse, request.patient_ids)
+    if not authorized_patient_ids:
+        raise HTTPException(
+            status_code=403,
+            detail="None of the requested patients are assigned to you.",
+        )
+    if len(authorized_patient_ids) != len(set(request.patient_ids)):
+        print(f"   ⚠️  Dropped unassigned patients from shift request")
+
     try:
-        # Create shift in database
+        # Create shift in database — identity comes from the token, never the request body.
         shift = create_shift(
-            nurse_id=request.nurse_id,
-            nurse_name=request.nurse_name,
+            nurse_id=nurse.nurse_id,
+            nurse_name=nurse.name or nurse.nurse_id,
             shift_type=request.shift_type,
             shift_date=date.today(),
-            patient_ids=request.patient_ids
+            patient_ids=authorized_patient_ids
         )
-        
+
         if not shift:
             raise HTTPException(status_code=500, detail="Failed to create shift")
         
@@ -363,12 +395,16 @@ async def start_shift(request: StartShiftRequest):
 
 
 @app.get("/api/shift/active/{nurse_id}")
-async def get_nurse_active_shift(nurse_id: str):
-    """Get active shift for a nurse"""
-    print(f"🔍 Fetching active shift for {nurse_id}...")
-    
+async def get_nurse_active_shift(nurse_id: str, nurse: AuthedNurse = Depends(get_current_nurse)):
+    """Get the caller's own active shift (a nurse may only query their own)"""
+    print(f"🔍 Fetching active shift...")
+
+    # A nurse may only look up their own active shift, regardless of the path value.
+    if nurse_id != nurse.nurse_id:
+        raise HTTPException(status_code=403, detail="You may only query your own active shift.")
+
     try:
-        shift = get_active_shift(nurse_id)
+        shift = get_active_shift(nurse.nurse_id)
         
         if not shift:
             print(f"⚠️  No active shift found for {nurse_id}")
@@ -392,17 +428,14 @@ async def get_nurse_active_shift(nurse_id: str):
 
 
 @app.get("/api/patients/{shift_id}")
-async def get_shift_patients(shift_id: str):
-    """Get all patients assigned to a shift"""
+async def get_shift_patients(shift_id: str, nurse: AuthedNurse = Depends(get_current_nurse)):
+    """Get all patients assigned to a shift the caller owns"""
     print(f"🔍 Fetching patients for shift {shift_id}...")
-    
+
     try:
-        # Get shift to find patient IDs
-        shift = get_shift_by_id(shift_id)
-        
-        if not shift:
-            raise HTTPException(status_code=404, detail="Shift not found")
-        
+        # Object-level authorization: the shift must belong to the caller (404 otherwise).
+        shift = require_owned_shift(nurse, shift_id)
+
         # Fetch patient details
         patients = get_multiple_patients(shift.patient_ids)
         
@@ -418,29 +451,42 @@ async def get_shift_patients(shift_id: str):
 
 
 @app.post("/api/patient/{patient_id}/update", status_code=201)
-async def add_patient_update(patient_id: str, request: PatientUpdateRequest):
-    """Add a new update for a patient"""
+async def add_patient_update(
+    patient_id: str,
+    request: PatientUpdateRequest,
+    nurse: AuthedNurse = Depends(get_current_nurse),
+):
+    """Add a new update for a patient in the caller's own active shift"""
     print(f"📝 Adding update for patient {patient_id}...")
     print(f"   Type: {request.update_type}")
     print(f"   Shift: {request.shift_id}")
-    
+
+    # Object-level authorization before any processing:
+    #  - the shift must belong to the authenticated nurse (404 otherwise),
+    #  - it must still be active,
+    #  - and the patient must be assigned to that shift.
+    shift = require_owned_shift(nurse, request.shift_id)
+    if not shift.is_active():
+        raise HTTPException(status_code=409, detail="Shift is not active.")
+    require_patient_in_shift(patient_id, shift)
+
     try:
         agent = get_update_agent()
-        
+
         # Determine if audio or text
         if request.audio:
             # TODO: Decode base64 audio and save to temp file
             # For now, return error
             raise HTTPException(status_code=501, detail="Audio updates not yet implemented")
-        
+
         if not request.text:
             raise HTTPException(status_code=400, detail="Either 'text' or 'audio' must be provided")
-        
-        # Process the update
+
+        # Process the update — nurse identity comes from the verified token, not the body.
         result = agent.process_update(
             audio_or_text=request.text,
             patient_id=patient_id,
-            nurse_id=request.nurse_id,
+            nurse_id=nurse.nurse_id,
             shift_id=request.shift_id,
             update_type=request.update_type,
             is_audio=False
@@ -475,10 +521,18 @@ async def add_patient_update(patient_id: str, request: PatientUpdateRequest):
 
 
 @app.get("/api/patient/{patient_id}/updates/{shift_id}")
-async def get_patient_shift_updates(patient_id: str, shift_id: str):
-    """Get all updates for a patient during a shift"""
+async def get_patient_shift_updates(
+    patient_id: str,
+    shift_id: str,
+    nurse: AuthedNurse = Depends(get_current_nurse),
+):
+    """Get all updates for a patient during a shift the caller owns"""
     print(f"🔍 Fetching updates for patient {patient_id} in shift {shift_id}...")
-    
+
+    # Object-level authorization: shift must be the caller's and patient must be in it.
+    shift = require_owned_shift(nurse, shift_id)
+    require_patient_in_shift(patient_id, shift)
+
     try:
         updates = get_patient_updates(patient_id, shift_id)
         
@@ -505,11 +559,19 @@ async def get_patient_shift_updates(patient_id: str, shift_id: str):
 
 
 @app.post("/api/patient/{patient_id}/draft", status_code=201)
-async def generate_patient_draft(patient_id: str, request: GenerateDraftRequest):
-    """Generate draft handoff for a patient"""
+async def generate_patient_draft(
+    patient_id: str,
+    request: GenerateDraftRequest,
+    nurse: AuthedNurse = Depends(get_current_nurse),
+):
+    """Generate draft handoff for a patient in the caller's own shift"""
     print(f"📋 Generating draft for patient {patient_id}...")
     print(f"   Shift: {request.shift_id}")
-    
+
+    # Object-level authorization before triggering (billable) LLM calls.
+    shift = require_owned_shift(nurse, request.shift_id)
+    require_patient_in_shift(patient_id, shift)
+
     try:
         # Check if there are any updates first
         updates = get_patient_updates(patient_id, request.shift_id)
@@ -551,10 +613,18 @@ async def generate_patient_draft(patient_id: str, request: GenerateDraftRequest)
 
 
 @app.get("/api/patient/{patient_id}/draft/{shift_id}")
-async def get_patient_draft(patient_id: str, shift_id: str):
-    """Retrieve existing draft for a patient"""
+async def get_patient_draft(
+    patient_id: str,
+    shift_id: str,
+    nurse: AuthedNurse = Depends(get_current_nurse),
+):
+    """Retrieve existing draft for a patient in a shift the caller owns"""
     print(f"🔍 Fetching draft for patient {patient_id} in shift {shift_id}...")
-    
+
+    # Object-level authorization: shift must be the caller's and patient must be in it.
+    shift = require_owned_shift(nurse, shift_id)
+    require_patient_in_shift(patient_id, shift)
+
     try:
         draft = get_draft(patient_id, shift_id)
         

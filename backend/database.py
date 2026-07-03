@@ -615,6 +615,35 @@ def get_patient(patient_id: str) -> Optional[dict]:
         return None
 
 
+def get_nurse_assignments(nurse_id: str) -> List[str]:
+    """
+    Return the list of patient_ids assigned to a nurse, read from the `assignments`
+    table (nurse_id, patient_id).
+
+    NOTE: the `assignments` table is created by
+    backend/migrations/enable_rls_and_ownership_policy.sql, which must be run against
+    the live Supabase project. Until it exists and is seeded, this returns [] and
+    assignment checks fail closed (deny), which is the intended secure default.
+    """
+    if not supabase:
+        print("❌ Supabase client not initialized")
+        return []
+
+    try:
+        result = supabase.table("assignments")\
+            .select("patient_id")\
+            .eq("nurse_id", nurse_id)\
+            .execute()
+
+        if result.data:
+            return [row["patient_id"] for row in result.data if row.get("patient_id")]
+        return []
+
+    except Exception as e:
+        print(f"❌ Error getting assignments for nurse {nurse_id}: {e}")
+        return []
+
+
 def get_multiple_patients(patient_ids: List[str]) -> List[dict]:
     """
     Get multiple patients from the existing patients table.
