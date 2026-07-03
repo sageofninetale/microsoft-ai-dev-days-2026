@@ -74,11 +74,13 @@ class VibeVoiceASR:
 
         audio_bytes = base64.b64decode(request.audio_b64)
 
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
-            f.write(audio_bytes)
-            wav_path = f.name
+        # Use an auto-cleaned temp directory so the decoded audio (PHI) is guaranteed
+        # removed on exit, including on exception — not left behind by a skipped unlink.
+        with tempfile.TemporaryDirectory(prefix="cascade_asr_") as tmpdir:
+            wav_path = os.path.join(tmpdir, "input.wav")
+            with open(wav_path, "wb") as f:
+                f.write(audio_bytes)
 
-        try:
             inputs = self.processor(
                 audio=[wav_path],
                 sampling_rate=None,
@@ -114,6 +116,3 @@ class VibeVoiceASR:
                 plain_text = raw_text
 
             return {"transcription": plain_text.strip(), "success": True}
-
-        finally:
-            os.unlink(wav_path)

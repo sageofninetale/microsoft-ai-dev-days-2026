@@ -10,7 +10,7 @@ import os
 import sys
 from pathlib import Path
 from datetime import date, datetime
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Literal
 from dotenv import load_dotenv
 
 # Ensure 'backend' package is importable whether we run from repo root or from backend/ dir.
@@ -73,6 +73,9 @@ from auth import (
     require_patient_assigned,
     filter_to_assigned,
 )
+
+# Local imports - Models (shared enums for input validation)
+from models import ShiftType, UpdateType
 
 # Local imports - Database
 from database import (
@@ -175,27 +178,28 @@ class StartShiftRequest(BaseModel):
     # nurse_id / nurse_name are intentionally NOT accepted from the client — the acting
     # nurse is derived from the authenticated JWT. Accepting them from the body allowed
     # any caller to impersonate any nurse.
-    shift_type: str  # day, night, evening
-    patient_ids: List[str]
+    shift_type: ShiftType  # constrained to the ShiftType enum (day/night/evening)
+    patient_ids: List[str] = Field(..., min_length=1, max_length=50)
 
 
 class PatientUpdateRequest(BaseModel):
     # nurse_id is intentionally NOT accepted from the client — see StartShiftRequest.
-    shift_id: str
-    update_type: str  # medication, vital_signs, procedure, general
-    text: Optional[str] = None
-    audio: Optional[str] = None  # base64 encoded audio
+    shift_id: str = Field(..., min_length=1, max_length=64)
+    update_type: UpdateType  # constrained to the UpdateType enum
+    text: Optional[str] = Field(default=None, max_length=20000)
+    audio: Optional[str] = Field(default=None, max_length=MAX_AUDIO_B64_CHARS)  # base64 encoded audio
 
 
 class GenerateDraftRequest(BaseModel):
-    shift_id: str
+    shift_id: str = Field(..., min_length=1, max_length=64)
 
 
 class TranscribeAudioRequest(BaseModel):
     # Cap the base64 payload at the model layer so an oversized body is rejected
     # (422) before it is ever read into memory / decoded — mitigates memory DoS.
     audio: str = Field(..., min_length=1, max_length=MAX_AUDIO_B64_CHARS)  # base64 encoded audio
-    format: str = "webm"  # audio format
+    # Constrain the format to a known allowlist — it is used to build temp filenames.
+    format: Literal["webm", "wav", "m4a", "mp3", "ogg"] = "webm"
 
 
 # ============================================================================
@@ -240,18 +244,23 @@ async def transcribe_audio(request: Request, payload: TranscribeAudioRequest):
         if len(audio_bytes) > MAX_AUDIO_DECODED_BYTES:
             raise HTTPException(status_code=413, detail="Audio payload too large.")
 
-        # Save to temporary file
-        with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{payload.format}') as temp_audio:
-            temp_audio.write(audio_bytes)
-            temp_audio_path = temp_audio.name
+        # Write to an auto-cleaned temp directory so BOTH the source audio and any
+        # converted WAV are removed on exit — including on exception — rather than
+        # relying on a best-effort finally. No PHI audio is left on disk afterwards.
+        # (Paths are fixed names inside the private dir, so the client-supplied
+        # `format` can no longer influence the on-disk filename.)
+        with tempfile.TemporaryDirectory(prefix="cascade_asr_") as tmpdir:
+            temp_audio_path = os.path.join(tmpdir, f"input.{payload.format}")
+            with open(temp_audio_path, "wb") as temp_audio:
+                temp_audio.write(audio_bytes)
 
-        wav_path = None
-        transcription = None
-        try:
+            wav_path = None
+            transcription = None
+
             # Convert to WAV if not already WAV (needed for Azure Speech SDK)
             audio_path_to_use = None
             if payload.format.lower() != 'wav':
-                wav_path = temp_audio_path.replace(f'.{payload.format}', '.wav')
+                wav_path = os.path.join(tmpdir, "input.wav")
 
                 print(f"🔄 Converting {payload.format} to WAV...")
 
@@ -327,12 +336,6 @@ async def transcribe_audio(request: Request, payload: TranscribeAudioRequest):
                 "transcription": transcription,
                 "audio_duration": len(audio_bytes) / 16000  # Approximate duration
             }
-        finally:
-            # Clean up temp files
-            if os.path.exists(temp_audio_path):
-                os.unlink(temp_audio_path)
-            if wav_path and os.path.exists(wav_path):
-                os.unlink(wav_path)
 
     except HTTPException:
         raise
@@ -414,7 +417,7 @@ async def start_shift(request: StartShiftRequest, nurse: AuthedNurse = Depends(g
         shift = create_shift(
             nurse_id=nurse.nurse_id,
             nurse_name=nurse.name or nurse.nurse_id,
-            shift_type=request.shift_type,
+            shift_type=request.shift_type.value,
             shift_date=date.today(),
             patient_ids=authorized_patient_ids
         )
@@ -509,7 +512,7 @@ async def add_patient_update(
 ):
     """Add a new update for a patient in the caller's own active shift"""
     log.info("Adding update for patient %s (type=%s, shift=%s)",
-             patient_id, payload.update_type, payload.shift_id)
+             patient_id, payload.update_type.value, payload.shift_id)
 
     # Object-level authorization before any processing:
     #  - the shift must belong to the authenticated nurse (404 otherwise),
@@ -538,7 +541,7 @@ async def add_patient_update(
             patient_id=patient_id,
             nurse_id=nurse.nurse_id,
             shift_id=payload.shift_id,
-            update_type=payload.update_type,
+            update_type=payload.update_type.value,
             is_audio=False
         )
 
