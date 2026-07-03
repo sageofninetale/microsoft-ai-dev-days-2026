@@ -130,8 +130,11 @@ class DraftGenerator:
             else:
                 organized["general"].append(update)
             
-            # Add to chronological list
+            # Add to chronological list. update_id rides along so provenance
+            # (Phase 4 Linked Evidence) can point each piece of generated
+            # content back at the exact update that produced it.
             organized["all_chronological"].append({
+                "update_id": update.id,
                 "timestamp": update.timestamp.strftime("%I:%M %p") if hasattr(update.timestamp, 'strftime') else str(update.timestamp),
                 "type": update_type,
                 "transcription": update.transcription,
@@ -635,6 +638,10 @@ Generate 250-400 word narrative handoff summary."""
             if k in clinical_data:
                 summary[k] = clinical_data[k]
 
+        # Linked Evidence (Phase 4): every section carries pointers back to the
+        # update IDs / transcript excerpts that produced it.
+        summary["provenance"] = self._build_provenance(organized_updates, timeline)
+
         # Final merged-draft gate: the object saved and shown to the nurse.
         ok, errors = schemas.check("draft_content", summary, schemas.DraftContent)
         gate_records.append({
@@ -658,6 +665,74 @@ Generate 250-400 word narrative handoff summary."""
             patient_data, organized_updates, clinical_context=clinical_data
         )
         return {"timeline": timeline}
+
+    @staticmethod
+    def _time_to_minutes(t: str) -> int:
+        """Parse '08:00 AM' / '08:00' to minutes-since-midnight, -1 if unparseable."""
+        from datetime import datetime as dt
+        for fmt in ("%I:%M %p", "%H:%M", "%I:%M%p"):
+            try:
+                parsed = dt.strptime(str(t).strip(), fmt)
+                return parsed.hour * 60 + parsed.minute
+            except ValueError:
+                continue
+        return -1
+
+    _PROVENANCE_EXCERPT_CHARS = 160
+
+    def _build_provenance(
+        self,
+        organized_updates: Dict[str, Any],
+        timeline: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """
+        Linked Evidence surface (trust stack Phase 4). This SURFACES the
+        provenance mechanism born in Phase 1c (the event log has been
+        recording source pointers since then) — it does not reinvent it.
+
+        Deterministic by construction: every draft section is generated from
+        the full update set, so each section points at all source update IDs
+        with a transcript excerpt per update; timeline events additionally get
+        a per-event source_update_id where their time matches exactly one
+        update's timestamp. A report section with no provenance pointer is
+        detectable (eval_pack grader 'provenance_all_sections').
+        """
+        chronological = organized_updates.get("all_chronological") or []
+        update_ids = [u.get("update_id") for u in chronological if u.get("update_id")]
+        evidence = [
+            {
+                "update_id": u.get("update_id"),
+                "time": u.get("timestamp"),
+                "transcript_excerpt": str(u.get("transcription", ""))[: self._PROVENANCE_EXCERPT_CHARS],
+            }
+            for u in chronological if u.get("update_id")
+        ]
+
+        # Per-event linkage: attach source_update_id where the event's time
+        # matches exactly one update (ambiguous/unmatched events keep the
+        # section-level pointers only — never a guessed attribution).
+        by_minutes: Dict[int, List[str]] = {}
+        for u in chronological:
+            minutes = self._time_to_minutes(u.get("timestamp", ""))
+            if minutes >= 0 and u.get("update_id"):
+                by_minutes.setdefault(minutes, []).append(u["update_id"])
+        for event in timeline or []:
+            if not isinstance(event, dict):
+                continue
+            candidates = by_minutes.get(self._time_to_minutes(event.get("time", "")), [])
+            if len(candidates) == 1:
+                event["source_update_id"] = candidates[0]
+
+        sections = {
+            section: {"source_update_ids": list(update_ids)}
+            for section in ("timeline", "current_status", "safety_alerts",
+                            "key_changes", "pending_actions", "narrative_summary")
+        }
+        return {
+            "generated_from_update_ids": update_ids,
+            "sections": sections,
+            "evidence": evidence,
+        }
 
     async def generate_draft(self, patient_id: str, shift_id: str) -> Dict[str, Any]:
         """

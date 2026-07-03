@@ -714,7 +714,10 @@ async def generate_patient_draft(
             "patient_id": patient_id,
             "update_count": result.get("update_count"),
             "draft_content": draft_content,
-            "attention": attention
+            "attention": attention,
+            # Linked Evidence (trust stack Phase 4): per-section pointers back
+            # to the update IDs / transcript excerpts that produced the draft.
+            "provenance": draft_content.get("provenance")
         }
         
     except HTTPException:
@@ -753,7 +756,10 @@ async def get_patient_draft(
             "update_count": draft.update_count,
             "draft_content": draft.draft_content,
             "last_updated": draft.last_updated.isoformat() if hasattr(draft.last_updated, 'isoformat') else str(draft.last_updated),
-            "status": draft.status
+            "status": draft.status,
+            # Linked Evidence (trust stack Phase 4) — surfaced from the stored
+            # draft content so the review UI can render per-section pointers.
+            "provenance": (draft.draft_content or {}).get("provenance")
         }
 
     except HTTPException:
