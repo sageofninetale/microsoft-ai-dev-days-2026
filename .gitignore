@@ -232,3 +232,6 @@ out.json
 test_*.py (root level)
 test_*.m4a
 test_*.wav
+node_modules/
+backend.zip
+backend/.azure/

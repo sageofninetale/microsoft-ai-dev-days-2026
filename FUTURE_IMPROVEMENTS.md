@@ -265,13 +265,6 @@ This document tracks enhancement ideas for CascadeAI to implement when time perm
 - [ ] **Offline mode** — allow transcription and report generation without internet connection for rural or low connectivity settings
 
 ### ⚡ Technical Improvements
-- [ ] **Fix blocking LLM calls in `draft_generator.py` for concurrent users** (post-demo, before production scale)
-  - `_generate_timeline_async`, `_generate_clinical_status_async`, `_generate_narrative_async` call the HF API synchronously inside `async def` functions
-  - This freezes the FastAPI server during each LLM call (~5-10 seconds)
-  - Not a problem for single-user demo — becomes a problem when multiple nurses hit the server at the same time
-  - Fix: wrap each LLM call with `asyncio.to_thread(self.hf_client.chat.completions.create, ...)`
-  - Estimated effort: 15 minutes
-  - Also: re-enable `asyncio.gather()` in `_generate_handoff_summary_async` (currently serialised for HF free-tier) once upgraded to HF Pro ($9/month)
 - [ ] **Migrate from Azure OpenAI to Groq LLaMA 3 70B** for faster processing and reduced costs
 - [ ] **Migrate from Azure Speech Service to Groq Whisper** for free tier speech transcription
 - [ ] **Migrate backend hosting from Azure App Service to Railway or Render** for cost efficiency
