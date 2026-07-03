@@ -379,15 +379,19 @@ async def get_nurses():
 
 
 @app.get("/api/patient/{patient_id}/info")
-async def get_patient_info(patient_id: str, nurse: AuthedNurse = Depends(get_current_nurse)):
+async def get_patient_info(
+    patient_id: str,
+    nurse: AuthedNurse = Depends(get_current_nurse),
+    db: Client = Depends(get_db),
+):
     """Get basic patient information (only for a patient assigned to the caller's active shift)"""
     print(f"🔍 Fetching info for patient {patient_id}...")
 
     # Object-level authorization: the patient must be assigned to the caller's active shift.
-    require_patient_assigned(nurse, patient_id)
+    require_patient_assigned(nurse, patient_id, client=db)
 
     try:
-        patient = get_patient(patient_id)
+        patient = get_patient(patient_id, client=db)
 
         if not patient:
             raise HTTPException(status_code=404, detail=f"Patient {patient_id} not found")
@@ -410,7 +414,11 @@ async def get_patient_info(patient_id: str, nurse: AuthedNurse = Depends(get_cur
 
 
 @app.post("/api/shift/start", status_code=201)
-async def start_shift(request: StartShiftRequest, nurse: AuthedNurse = Depends(get_current_nurse)):
+async def start_shift(
+    request: StartShiftRequest,
+    nurse: AuthedNurse = Depends(get_current_nurse),
+    db: Client = Depends(get_db),
+):
     """Start a new shift for the authenticated nurse over their assigned patients only"""
     print(f"🏥 Starting shift...")
     print(f"   Type: {request.shift_type}")
@@ -419,7 +427,7 @@ async def start_shift(request: StartShiftRequest, nurse: AuthedNurse = Depends(g
     # Workflow / business-logic guard: a nurse may only open a shift over patients that
     # are actually assigned to them. Requested-but-unassigned patient_ids are dropped;
     # if that leaves nothing, refuse rather than creating an all-access shift.
-    authorized_patient_ids = filter_to_assigned(nurse, request.patient_ids)
+    authorized_patient_ids = filter_to_assigned(nurse, request.patient_ids, client=db)
     if not authorized_patient_ids:
         raise HTTPException(
             status_code=403,
@@ -435,7 +443,8 @@ async def start_shift(request: StartShiftRequest, nurse: AuthedNurse = Depends(g
             nurse_name=nurse.name or nurse.nurse_id,
             shift_type=request.shift_type.value,
             shift_date=date.today(),
-            patient_ids=authorized_patient_ids
+            patient_ids=authorized_patient_ids,
+            client=db,
         )
 
         if not shift:
@@ -533,6 +542,7 @@ async def add_patient_update(
     patient_id: str,
     payload: PatientUpdateRequest,
     nurse: AuthedNurse = Depends(get_current_nurse),
+    db: Client = Depends(get_db),
 ):
     """Add a new update for a patient in the caller's own active shift"""
     log.info("Adding update for patient %s (type=%s, shift=%s)",
@@ -542,7 +552,7 @@ async def add_patient_update(
     #  - the shift must belong to the authenticated nurse (404 otherwise),
     #  - it must still be active,
     #  - and the patient must be assigned to that shift.
-    shift = require_owned_shift(nurse, payload.shift_id)
+    shift = require_owned_shift(nurse, payload.shift_id, client=db)
     if not shift.is_active():
         raise HTTPException(status_code=409, detail="Shift is not active.")
     require_patient_in_shift(patient_id, shift)
@@ -588,7 +598,7 @@ async def add_patient_update(
         try:
             risk_assessment = risk_pipeline.assess_update(
                 result.get("extracted_data") or {},
-                get_patient(patient_id) or {},
+                get_patient(patient_id, client=db) or {},
                 {"issues": result.get("verification_issues", []),
                  "emr_verified": result.get("emr_verified")},
                 shift_id=payload.shift_id, patient_id=patient_id,
@@ -621,16 +631,17 @@ async def get_patient_shift_updates(
     patient_id: str,
     shift_id: str,
     nurse: AuthedNurse = Depends(get_current_nurse),
+    db: Client = Depends(get_db),
 ):
     """Get all updates for a patient during a shift the caller owns"""
     log.info("Fetching updates for patient %s in shift %s", patient_id, shift_id)
 
     # Object-level authorization: shift must be the caller's and patient must be in it.
-    shift = require_owned_shift(nurse, shift_id)
+    shift = require_owned_shift(nurse, shift_id, client=db)
     require_patient_in_shift(patient_id, shift)
 
     try:
-        updates = get_patient_updates(patient_id, shift_id)
+        updates = get_patient_updates(patient_id, shift_id, client=db)
 
         log.info("Found %d updates", len(updates))
         
@@ -663,17 +674,18 @@ async def generate_patient_draft(
     patient_id: str,
     payload: GenerateDraftRequest,
     nurse: AuthedNurse = Depends(get_current_nurse),
+    db: Client = Depends(get_db),
 ):
     """Generate draft handoff for a patient in the caller's own shift"""
     log.info("Generating draft for patient %s (shift=%s)", patient_id, payload.shift_id)
 
     # Object-level authorization before triggering (billable) LLM calls.
-    shift = require_owned_shift(nurse, payload.shift_id)
+    shift = require_owned_shift(nurse, payload.shift_id, client=db)
     require_patient_in_shift(patient_id, shift)
 
     try:
         # Check if there are any updates first
-        updates = get_patient_updates(patient_id, payload.shift_id)
+        updates = get_patient_updates(patient_id, payload.shift_id, client=db)
 
         if not updates or len(updates) == 0:
             raise HTTPException(
@@ -704,7 +716,7 @@ async def generate_patient_draft(
         try:
             attention = risk_pipeline.assess_draft(
                 draft_content,
-                get_patient(patient_id) or {},
+                get_patient(patient_id, client=db) or {},
                 updates,
                 shift_id=payload.shift_id, patient_id=patient_id,
                 nurse_id=nurse.nurse_id, draft_id=result.get("draft_id"),
@@ -725,7 +737,7 @@ async def generate_patient_draft(
         if result.get("draft_id"):
             # Persist the annotated content; failure to persist must not lose
             # the response annotation (update_draft already logs its own errors).
-            update_draft(result["draft_id"], draft_content, result.get("update_count") or len(updates))
+            update_draft(result["draft_id"], draft_content, result.get("update_count") or len(updates), client=db)
 
         return {
             "success": True,
@@ -751,16 +763,17 @@ async def get_patient_draft(
     patient_id: str,
     shift_id: str,
     nurse: AuthedNurse = Depends(get_current_nurse),
+    db: Client = Depends(get_db),
 ):
     """Retrieve existing draft for a patient in a shift the caller owns"""
     log.info("Fetching draft for patient %s in shift %s", patient_id, shift_id)
 
     # Object-level authorization: shift must be the caller's and patient must be in it.
-    shift = require_owned_shift(nurse, shift_id)
+    shift = require_owned_shift(nurse, shift_id, client=db)
     require_patient_in_shift(patient_id, shift)
 
     try:
-        draft = get_draft(patient_id, shift_id)
+        draft = get_draft(patient_id, shift_id, client=db)
 
         if not draft:
             log.info("No draft found for patient %s", patient_id)

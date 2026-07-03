@@ -100,9 +100,9 @@ def get_current_nurse(authorization: Optional[str] = Header(default=None)) -> Au
 # when the authenticated nurse is not entitled to the requested object.
 # ---------------------------------------------------------------------------
 
-def require_active_shift(nurse: AuthedNurse) -> NurseShift:
+def require_active_shift(nurse: AuthedNurse, client: Optional[Client] = None) -> NurseShift:
     """Return the nurse's own active shift, or 404 if they have none."""
-    shift = get_active_shift(nurse.nurse_id)
+    shift = get_active_shift(nurse.nurse_id, client=client)
     if not shift:
         raise HTTPException(status_code=404, detail="No active shift for this nurse.")
     return shift
@@ -127,17 +127,17 @@ def require_patient_in_shift(patient_id: str, shift: NurseShift) -> None:
         raise HTTPException(status_code=404, detail="Patient not found in this shift.")
 
 
-def require_patient_assigned(nurse: AuthedNurse, patient_id: str) -> NurseShift:
+def require_patient_assigned(nurse: AuthedNurse, patient_id: str, client: Optional[Client] = None) -> NurseShift:
     """
     For patient-scoped reads that only carry a patient_id: resolve the nurse's active
     shift and confirm the patient is assigned to it. Returns the active shift.
     """
-    shift = require_active_shift(nurse)
+    shift = require_active_shift(nurse, client=client)
     require_patient_in_shift(patient_id, shift)
     return shift
 
 
-def filter_to_assigned(nurse: AuthedNurse, patient_ids: list[str]) -> list[str]:
+def filter_to_assigned(nurse: AuthedNurse, patient_ids: list[str], client: Optional[Client] = None) -> list[str]:
     """Return the subset of patient_ids actually assigned to the nurse (per the DB)."""
-    assigned = set(get_nurse_assignments(nurse.nurse_id))
+    assigned = set(get_nurse_assignments(nurse.nurse_id, client=client))
     return [pid for pid in patient_ids if pid in assigned]
