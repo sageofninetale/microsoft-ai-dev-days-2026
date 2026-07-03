@@ -23,6 +23,19 @@ import json
 
 from anthropic import Anthropic
 
+# ----------------------------------------------------------------------------
+# BUILDER/RUNTIME MODEL SPLIT — DECISION (trust stack Phase 1d)
+# The app is fully migrated to Anthropic; there is no Groq code and none should
+# be reintroduced. We considered an Anthropic-only two-tier split (a larger
+# "builder" model for heavyweight one-off work vs. the fast runtime model
+# below) and REJECTED it for now: every call site in the live request path
+# (extraction, clinical status, timeline, narrative, protocol reasoning) is a
+# latency-sensitive per-request call on the same tier, so a second model would
+# add a config knob, a second failure mode, and per-call routing logic with no
+# call site that actually benefits. Revisit only if a genuinely offline
+# heavyweight stage appears (e.g. batch re-summarization) — then add a second
+# constant here and route explicitly at that one call site.
+# ----------------------------------------------------------------------------
 HF_MODEL = "claude-haiku-4-5-20251001"                                        # model name — change here only, on future swap
 
 _client: Anthropic | None = None                                              # lazily-constructed singleton client

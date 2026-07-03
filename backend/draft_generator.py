@@ -20,6 +20,8 @@ log = logging.getLogger("cascadeai.draft_generator")
 # Local imports
 from models import DraftHandoff, PatientUpdate
 from database import get_patient_updates, get_patient, save_draft
+import schemas
+from event_log import log_event, make_provenance
 
 # Load environment variables
 load_dotenv()
@@ -69,6 +71,31 @@ class DraftGenerator:
                     return datetime.min
 
         return sorted(timeline, key=parse_time)
+
+    async def _gated(self, stage: str, producer, model):
+        """
+        Schema gate for async LLM producers (trust stack Phase 1a):
+        block malformed output, re-invoke the producing call ONCE, then flag.
+        Sync producers use schemas.gate_sync(); this exists because a retry
+        here needs an await. Returns (payload, gate_record).
+        """
+        payload = await producer()
+        ok, errors = schemas.check(stage, payload, model)
+        if ok:
+            return payload, {"stage": stage, "status": "pass", "attempts": 1, "errors": []}
+
+        log.warning("Schema gate BLOCKED stage=%s — retrying once: %s", stage, errors[:3])
+        payload = await producer()
+        ok, retry_errors = schemas.check(stage, payload, model)
+        if ok:
+            return payload, {
+                "stage": stage, "status": "pass_after_retry", "attempts": 2,
+                "errors": errors,
+            }
+        payload = schemas.flag(payload, stage, retry_errors)
+        return payload, {
+            "stage": stage, "status": "flagged", "attempts": 2, "errors": retry_errors,
+        }
 
     def _organize_updates(self, updates: List[PatientUpdate]) -> Dict[str, Any]:
         """
@@ -511,7 +538,11 @@ Generate 250-400 word narrative handoff summary."""
         elapsed = time.time() - start
         print(f"   📝 Narrative call: {elapsed:.2f}s")
 
-        return result.get("narrative_summary", "See updates for details.")
+        # Return the RAW dict — the schema gate in _generate_handoff_summary_async
+        # validates it (narrative_summary present + non-empty). The old
+        # `.get(..., "See updates for details.")` default was exactly the kind of
+        # plausible-looking silent fallback the gates exist to eliminate.
+        return result
 
     async def _generate_handoff_summary_async(
         self,
@@ -548,10 +579,40 @@ Generate 250-400 word narrative handoff summary."""
         # interaction findings can be piped into the timeline call — the timeline
         # previously never saw EMR reconciliation/interaction context at all, so
         # its own existing severity rules had nothing to key off.
-        clinical_data = await self._generate_clinical_status_async(patient_data, organized_updates)
-        timeline = await self._generate_timeline_async(patient_data, organized_updates, clinical_context=clinical_data)
-        timeline = self._sort_timeline_by_time(timeline)
-        narrative = await self._generate_narrative_async(patient_data, organized_updates, update_count)
+        #
+        # Each LLM output passes a schema gate (Phase 1a): block → retry ONCE →
+        # flag. Gate records are attached to the draft as _schema_gates so a
+        # flagged section reaches the nurse visibly suspect, never silently.
+        gate_records = []
+
+        clinical_data, g = await self._gated(
+            "draft_clinical_status",
+            lambda: self._generate_clinical_status_async(patient_data, organized_updates),
+            schemas.ClinicalStatusOutput,
+        )
+        gate_records.append(g)
+
+        timeline_payload, g = await self._gated(
+            "draft_timeline",
+            lambda: self._wrapped_timeline(patient_data, organized_updates, clinical_data),
+            schemas.TimelineOutput,
+        )
+        gate_records.append(g)
+        timeline = timeline_payload.get("timeline") or []
+        timeline = self._sort_timeline_by_time([e for e in timeline if isinstance(e, dict)])
+
+        narrative_payload, g = await self._gated(
+            "draft_narrative",
+            lambda: self._generate_narrative_async(patient_data, organized_updates, update_count),
+            schemas.NarrativeOutput,
+        )
+        gate_records.append(g)
+        if g["status"] == "flagged":
+            # Explicit, loud failure text — deliberately NOT a plausible summary.
+            narrative = ("⚠ NARRATIVE GENERATION FAILED SCHEMA VALIDATION — "
+                         "flagged for manual review; do not hand off on this section.")
+        else:
+            narrative = narrative_payload["narrative_summary"]
 
         elapsed = time.time() - start_time
         print(f"⏱️  API calls completed in {elapsed:.2f}s")
@@ -565,10 +626,36 @@ Generate 250-400 word narrative handoff summary."""
             "pending_actions": clinical_data.get("pending_actions", []),
             "narrative_summary": narrative
         }
+        # Carry forward the clinical call's own defence-in-depth annotations
+        # (e.g. suspected safety-alert suppression) — dropping them here would
+        # undo that check.
+        for k in ("_review_flags", "_schema_flagged", "_schema_stage", "_schema_errors"):
+            if k in clinical_data:
+                summary[k] = clinical_data[k]
+
+        # Final merged-draft gate: the object saved and shown to the nurse.
+        ok, errors = schemas.check("draft_content", summary, schemas.DraftContent)
+        gate_records.append({
+            "stage": "draft_content",
+            "status": "pass" if ok else "flagged",
+            "attempts": 1,
+            "errors": errors,
+        })
+        if not ok:
+            summary = schemas.flag(summary, "draft_content", errors)
+
+        summary["_schema_gates"] = gate_records
 
         print(f"✅ Generated handoff summary with {len(timeline)} timeline events")
 
         return summary
+
+    async def _wrapped_timeline(self, patient_data, organized_updates, clinical_data):
+        """Wrap the timeline list in a dict so it can pass the schema gate."""
+        timeline = await self._generate_timeline_async(
+            patient_data, organized_updates, clinical_context=clinical_data
+        )
+        return {"timeline": timeline}
 
     async def generate_draft(self, patient_id: str, shift_id: str) -> Dict[str, Any]:
         """
@@ -655,7 +742,28 @@ Generate 250-400 word narrative handoff summary."""
                     "message": "Failed to save draft to database",
                     "error": "Database save failed"
                 }
-            
+
+            # Event log (Phase 1b/1c): immutable record of the generated draft
+            # with provenance back to every update it was derived from.
+            gate_statuses = [g.get("status") for g in draft_content.get("_schema_gates", [])]
+            log_event(
+                "draft_generated", "draft_generator",
+                payload={
+                    "draft_id": draft_id,
+                    "update_count": len(updates),
+                    "timeline_events": len(draft_content.get("timeline", [])),
+                    "safety_alerts": len(draft_content.get("safety_alerts", [])),
+                    "schema_gates": gate_statuses,
+                    "schema_flagged": bool(draft_content.get("_schema_flagged"))
+                                      or "flagged" in gate_statuses,
+                },
+                shift_id=shift_id, patient_id=patient_id,
+                provenance=make_provenance(
+                    source_update_ids=[u.id for u in updates],
+                    draft_id=draft_id,
+                ),
+            )
+
             # Step 7: Return success result
             print(f"\n{'='*60}")
             print(f"✅ Draft handoff generated successfully!")
