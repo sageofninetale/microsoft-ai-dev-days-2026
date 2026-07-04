@@ -576,7 +576,8 @@ async def add_patient_update(
             nurse_id=nurse.nurse_id,
             shift_id=payload.shift_id,
             update_type=payload.update_type.value,
-            is_audio=False
+            is_audio=False,
+            client=db,
         )
 
         if not result.get("success"):
@@ -698,7 +699,8 @@ async def generate_patient_draft(
         # Generate draft
         result = await generator.generate_draft(
             patient_id=patient_id,
-            shift_id=payload.shift_id
+            shift_id=payload.shift_id,
+            client=db,
         )
 
         if not result.get("success"):

@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 import json
 
 import requests
+from supabase import Client
 
 from llm_client import ask_llm, wrap_untrusted
 
@@ -382,11 +383,12 @@ Extract the structured data as JSON. Make sure event_type reflects what is ACTUA
         nurse_id: str,
         shift_id: str,
         update_type: str = "general",
-        is_audio: bool = False
+        is_audio: bool = False,
+        client: Optional[Client] = None,
     ) -> Dict[str, Any]:
         """
         Process a patient update from audio or text.
-        
+
         Args:
             audio_or_text: Path to audio file or text update
             patient_id: ID of the patient
@@ -394,7 +396,10 @@ Extract the structured data as JSON. Make sure event_type reflects what is ACTUA
             shift_id: ID of the current shift
             update_type: Type of update (vital_signs/medication/procedure/general)
             is_audio: Whether input is audio file (True) or text (False)
-        
+            client: Request-scoped Supabase client authenticated as the calling
+                nurse (see database.get_client_for_token). Falls back to the
+                module-level anon-scoped client when not supplied (e.g. scripts).
+
         Returns:
             Dictionary with processing results
         """
@@ -439,7 +444,7 @@ Extract the structured data as JSON. Make sure event_type reflects what is ACTUA
 
             # Step 3: Fetch patient EMR data
             print(f"🔍 Fetching EMR data for patient {patient_id}")
-            patient_data = get_patient(patient_id)
+            patient_data = get_patient(patient_id, client=client)
             
             if not patient_data:
                 log.warning("Could not fetch patient %s from EMR", patient_id)
@@ -486,7 +491,7 @@ Extract the structured data as JSON. Make sure event_type reflects what is ACTUA
             
             # Step 6: Save to database
             print(f"💾 Saving update to database...")
-            saved_id = save_update(patient_update)
+            saved_id = save_update(patient_update, client=client)
             
             if not saved_id:
                 return {

@@ -13,6 +13,8 @@ from typing import Optional, Dict, Any, List
 from dotenv import load_dotenv
 import json
 
+from supabase import Client
+
 from llm_client import ask_llm, wrap_untrusted
 
 log = logging.getLogger("cascadeai.draft_generator")
@@ -734,14 +736,19 @@ Generate 250-400 word narrative handoff summary."""
             "evidence": evidence,
         }
 
-    async def generate_draft(self, patient_id: str, shift_id: str) -> Dict[str, Any]:
+    async def generate_draft(
+        self, patient_id: str, shift_id: str, client: Optional[Client] = None
+    ) -> Dict[str, Any]:
         """
         Generate a draft handoff by compiling all updates for a patient during a shift.
-        
+
         Args:
             patient_id: ID of the patient
             shift_id: ID of the shift
-        
+            client: Request-scoped Supabase client authenticated as the calling
+                nurse (see database.get_client_for_token). Falls back to the
+                module-level anon-scoped client when not supplied (e.g. scripts).
+
         Returns:
             Dictionary with draft generation results
         """
@@ -750,23 +757,23 @@ Generate 250-400 word narrative handoff summary."""
             print(f"📋 Generating draft handoff for patient {patient_id}")
             print(f"🔄 Shift ID: {shift_id}")
             print(f"{'='*60}\n")
-            
+
             # Step 1: Fetch all updates for this patient during this shift
             print(f"🔍 Fetching updates for patient {patient_id}...")
-            updates = get_patient_updates(patient_id, shift_id)
-            
+            updates = get_patient_updates(patient_id, shift_id, client=client)
+
             if not updates:
                 return {
                     "success": False,
                     "message": "No updates found for this patient during this shift",
                     "error": "No updates available"
                 }
-            
+
             print(f"✅ Found {len(updates)} update(s)")
-            
+
             # Step 2: Fetch patient EMR data
             print(f"🔍 Fetching EMR data for patient {patient_id}...")
-            patient_data = get_patient(patient_id)
+            patient_data = get_patient(patient_id, client=client)
             
             if not patient_data:
                 print(f"⚠️  Warning: Could not fetch patient {patient_id} from EMR")
@@ -811,7 +818,7 @@ Generate 250-400 word narrative handoff summary."""
             
             # Step 6: Save draft to database
             print(f"💾 Saving draft to database...")
-            saved_id = save_draft(draft_handoff)
+            saved_id = save_draft(draft_handoff, client=client)
             
             if not saved_id:
                 return {
