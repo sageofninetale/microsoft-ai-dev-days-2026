@@ -348,9 +348,15 @@ def check_safety_alert_respiratory(report: Dict) -> CheckResult:
 
 
 def check_safety_alerts_have_actions(report: Dict) -> CheckResult:
+    """
+    Every safety alert that IS present must include a recommended action.
+    Zero alerts is not itself a failure here — plenty of genuinely benign
+    updates correctly produce no safety alerts at all; that's checked
+    elsewhere (e.g. scenario-specific graders), not by this structural rule.
+    """
     alerts = report.get("safety_alerts", [])
     if not alerts:
-        return False, "No safety alerts at all"
+        return True, "No safety alerts present (nothing to check)"
     actionless = []
     for a in alerts:
         if isinstance(a, dict):
@@ -430,9 +436,21 @@ def check_pending_antihypertensive_action(report: Dict) -> CheckResult:
 
 
 def check_pending_actions_have_verbs(report: Dict) -> CheckResult:
+    """
+    Verb list expanded 4 Jul 2026 after a live eval-pack run against the real
+    model surfaced clinically legitimate actions this check was wrongly
+    flagging (e.g. "Verify lisinopril was administered...", "Perform 12-lead
+    ECG...", "Initiate potassium-lowering protocol...", "Contact prescribing
+    clinician...") — these are perfectly good actions; the whitelist was
+    just incomplete, built around one original hand-written test fixture.
+    """
     actions = report.get("pending_actions", [])
-    verbs = ["obtain", "notify", "reassess", "monitor", "hold", "escalate",
-             "review", "reconcile", "request", "adjust", "assess", "check"]
+    verbs = ["obtain", "notify", "notification", "reassess", "monitor", "hold",
+             "escalate", "review", "reconcile", "request", "adjust", "assess",
+             "check", "verify", "perform", "initiate", "establish", "contact",
+             "continue", "discontinue", "administer", "start", "stop",
+             "document", "ensure", "confirm", "recheck", "repeat", "consider",
+             "prepare", "evaluate"]
     weak = []
     for a in actions:
         text = (a.get("action", "") if isinstance(a, dict) else str(a)).lower()

@@ -298,7 +298,7 @@ MEDICATION STATUS:
 VITAL SEVERITY — apply each threshold strictly per vital in isolation. Do NOT elevate a vital's colour based on the overall patient context; that belongs in Safety Alerts:
 
 Heart Rate (bpm):
-- RED (🔴): 130 or above, OR 40 or below
+- RED (🔴): 131 or above, OR 40 or below
 - ORANGE (🟠): 111 to 130, OR 41 to 50
 - YELLOW (🟡): 91 to 110, OR 51 to 60 (mild tachycardia/bradycardia)
 - GREEN (🟢): 61 to 90
@@ -331,7 +331,8 @@ Pain (0–10):
 Calibration examples (use these to verify your judgement):
 - HR 112 bpm → ORANGE (111 to 130 range)
 - HR 128 bpm → ORANGE (111 to 130 range)
-- HR 131 bpm → RED (130 or above)
+- HR 130 bpm → ORANGE (111 to 130 range, NOT red — 131 is the RED cutoff)
+- HR 131 bpm → RED (131 or above)
 - BP SBP 98 → ORANGE (91 to 100 range)
 - BP SBP 85 → RED (90 or below)
 - BP SBP 115 → GREEN (111 to 219 range)

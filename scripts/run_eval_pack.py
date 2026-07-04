@@ -31,6 +31,10 @@ import json
 import os
 import sys
 from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv()  # needed here, not just in draft_generator.py — main() checks
+                # ANTHROPIC_API_KEY before draft_generator is ever imported
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "backend"))
