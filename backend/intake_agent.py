@@ -10,7 +10,7 @@ import os
 from dataclasses import dataclass, fields
 from typing import Dict, List, Optional
 
-from llm_client import ask_llm
+from llm_client import ask_llm, wrap_untrusted
 
 
 __all__ = [
@@ -196,8 +196,10 @@ class PatientIntakeAgent:
         # No local try/except around ask_llm() — a failed or malformed-JSON
         # extraction must raise IntakeAgentError-worthy failure up to the
         # caller, not silently produce a placeholder HandoffSummary.
+        # The transcript is untrusted (user/ASR text) — wrap it so the model
+        # cannot be steered by instructions embedded in it.
         try:
-            payload = ask_llm(system_prompt, transcript)
+            payload = ask_llm(system_prompt, wrap_untrusted(transcript))
         except json.JSONDecodeError as exc:
             raise IntakeAgentError("LLM returned invalid JSON.") from exc
 

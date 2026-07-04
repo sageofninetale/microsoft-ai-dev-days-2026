@@ -232,6 +232,10 @@ out.json
 test_*.py (root level)
 test_*.m4a
 test_*.wav
+
+# Generated runtime artifacts (should never be committed)
+quality_last_run.json
+backend/quality_last_run.json
 node_modules/
 backend.zip
 backend/.azure/

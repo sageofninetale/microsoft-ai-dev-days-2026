@@ -4,6 +4,7 @@ Transcribes audio, extracts structured data, verifies against EMR, and saves to 
 """
 
 from __future__ import annotations
+import logging
 import os
 import re
 import uuid
@@ -14,13 +15,18 @@ from dotenv import load_dotenv
 import json
 
 import requests
+from supabase import Client
 
-from llm_client import ask_llm
+from llm_client import ask_llm, wrap_untrusted
+
+log = logging.getLogger("cascadeai.update_agent")
 
 # Local imports
 from models import PatientUpdate
 from database import save_update, get_patient
 from verification_agent import VerificationAgent
+import schemas
+from event_log import log_event, make_provenance
 
 # Load environment variables
 load_dotenv()
@@ -46,6 +52,31 @@ KNOWN_MEDICATION_KEYWORDS = [
     "Furosemide", "Warfarin", "Levothyroxine", "Lantus", "Humalog",
     "Albuterol", "Amlodipine", "Omeprazole", "Gabapentin",
 ]
+
+
+def _flag_possible_suppression(raw_text: str, extracted: Dict[str, Any]) -> None:
+    """
+    Heuristic prompt-injection / suppression detector.
+
+    If the raw transcript clearly mentions a known medication but the extracted
+    `mentioned_medications` is empty, mark the record as suspect (rather than trusting
+    it as a clean, medication-free update). Non-destructive: it annotates the data and
+    logs a warning; the update is still saved but is flagged for human review.
+    """
+    if not isinstance(extracted, dict):
+        return
+
+    text_lower = (raw_text or "").lower()
+    mentions_known_med = any(med.lower() in text_lower for med in KNOWN_MEDICATION_KEYWORDS)
+    extracted_meds = extracted.get("mentioned_medications") or []
+
+    if mentions_known_med and not extracted_meds:
+        extracted["_injection_suspected"] = True
+        extracted["_review_reason"] = (
+            "Raw text names a known medication but none were extracted — "
+            "possible prompt injection or extraction suppression."
+        )
+        log.warning("Possible suppression/injection: known medication in text but none extracted")
 
 
 class UpdateAgent:
@@ -181,21 +212,30 @@ Extract these fields:
 
 Return ONLY valid JSON. Be precise and extract all clinical details."""
 
+        # The transcription is untrusted (typed or ASR text) — wrap it so an attacker
+        # cannot embed instructions that steer the extractor (e.g. to zero out
+        # medications/vitals so the downstream safety check finds nothing).
         user_prompt = f"""Nurse suggested type: {update_type} (but analyze content to determine ACTUAL type)
 
 Transcription:
-{transcription}
+{wrap_untrusted(transcription)}
 
 Extract the structured data as JSON. Make sure event_type reflects what is ACTUALLY described in the text."""
 
-        print(f"🤖 Extracting structured data from update...")
+        log.info("Extracting structured data from update...")
 
         # No try/except — a failed extraction must surface as a failed update
         # submission (process_update()'s outer try/except already returns
         # success: False), not a fabricated minimal record that looks like a
         # real extraction with everything simply defaulted to empty/current.
         extracted_data = ask_llm(system_prompt, user_prompt)
-        print(f"✅ Extracted data: {extracted_data.get('event_type', 'unknown')} event")
+
+        # Defence-in-depth against prompt injection / silent suppression: if the raw
+        # text clearly names known medications but the model returned none, flag it so
+        # the update is not trusted as "clean" downstream.
+        _flag_possible_suppression(transcription, extracted_data)
+
+        log.info("Extracted %s event", extracted_data.get("event_type", "unknown"))
 
         return extracted_data
 
@@ -343,11 +383,12 @@ Extract the structured data as JSON. Make sure event_type reflects what is ACTUA
         nurse_id: str,
         shift_id: str,
         update_type: str = "general",
-        is_audio: bool = False
+        is_audio: bool = False,
+        client: Optional[Client] = None,
     ) -> Dict[str, Any]:
         """
         Process a patient update from audio or text.
-        
+
         Args:
             audio_or_text: Path to audio file or text update
             patient_id: ID of the patient
@@ -355,7 +396,10 @@ Extract the structured data as JSON. Make sure event_type reflects what is ACTUA
             shift_id: ID of the current shift
             update_type: Type of update (vital_signs/medication/procedure/general)
             is_audio: Whether input is audio file (True) or text (False)
-        
+            client: Request-scoped Supabase client authenticated as the calling
+                nurse (see database.get_client_for_token). Falls back to the
+                module-level anon-scoped client when not supplied (e.g. scripts).
+
         Returns:
             Dictionary with processing results
         """
@@ -381,20 +425,54 @@ Extract the structured data as JSON. Make sure event_type reflects what is ACTUA
             
             # Step 2: Extract structured data
             extracted_data = self._extract_update_data(transcription, update_type)
-            
+
+            # Schema gate (trust stack Phase 1a): UpdateAgent output → downstream.
+            # Malformed LLM output is blocked, the extraction is retried ONCE, and
+            # a still-malformed result proceeds only as visibly-flagged data
+            # (_schema_flagged) — never silently passed as clean.
+            extracted_data, extraction_gate = schemas.gate_sync(
+                "update_extraction",
+                extracted_data,
+                schemas.ExtractedUpdate,
+                retry=lambda: self._extract_update_data(transcription, update_type),
+            )
+            log_event(
+                "schema_gate", "update_agent", payload=extraction_gate,
+                shift_id=shift_id, patient_id=patient_id, nurse_id=nurse_id,
+                provenance=make_provenance(transcript_excerpt=transcription),
+            )
+
             # Step 3: Fetch patient EMR data
             print(f"🔍 Fetching EMR data for patient {patient_id}")
-            patient_data = get_patient(patient_id)
+            patient_data = get_patient(patient_id, client=client)
             
             if not patient_data:
-                print(f"⚠️  Warning: Could not fetch patient {patient_id} from EMR")
+                log.warning("Could not fetch patient %s from EMR", patient_id)
                 patient_data = {}  # Continue anyway with empty EMR
             else:
-                print(f"✅ Retrieved EMR for {patient_data.get('name', 'Unknown')}")
+                # Log opaque patient id only — never the patient name (PHI).
+                log.info("Retrieved EMR for patient %s", patient_id)
             
             # Step 4: Verify update against EMR
             verification_results = self._verify_update(extracted_data, patient_data)
-            
+
+            # Schema gate (Phase 1a): verification output → storage/response.
+            # The producer is deterministic, so there is no retry — a failure
+            # here is a code bug and is flagged immediately rather than re-run.
+            verification_results, verification_gate = schemas.gate_sync(
+                "emr_verification", verification_results, schemas.VerificationOutput,
+            )
+            if verification_gate["status"] != "pass":
+                log_event(
+                    "schema_gate", "update_agent", payload=verification_gate,
+                    shift_id=shift_id, patient_id=patient_id, nurse_id=nurse_id,
+                    provenance=make_provenance(transcript_excerpt=transcription),
+                )
+                # A flagged verification cannot vouch for the update.
+                verification_results.setdefault("emr_verified", False)
+                verification_results.setdefault("issues", [])
+                verification_results.setdefault("checked_at", datetime.now().isoformat())
+
             # Step 5: Create PatientUpdate object
             update_id = str(uuid.uuid4())
             patient_update = PatientUpdate(
@@ -413,7 +491,7 @@ Extract the structured data as JSON. Make sure event_type reflects what is ACTUA
             
             # Step 6: Save to database
             print(f"💾 Saving update to database...")
-            saved_id = save_update(patient_update)
+            saved_id = save_update(patient_update, client=client)
             
             if not saved_id:
                 return {
@@ -421,7 +499,28 @@ Extract the structured data as JSON. Make sure event_type reflects what is ACTUA
                     "message": "Failed to save update to database",
                     "error": "Database save failed"
                 }
-            
+
+            # Event log (Phase 1b/1c): one immutable record of this agent
+            # output, with provenance back to the raw transcript that produced
+            # it. update_id is the pointer everything downstream (drafts,
+            # Linked Evidence) traces back to.
+            log_event(
+                "extraction_completed", "update_agent",
+                payload={
+                    "event_type": extracted_data.get("event_type", update_type),
+                    "emr_verified": verification_results["emr_verified"],
+                    "issue_count": len(verification_results["issues"]),
+                    "schema_gate": extraction_gate["status"],
+                    "injection_suspected": bool(extracted_data.get("_injection_suspected")),
+                },
+                shift_id=shift_id, patient_id=patient_id,
+                update_id=update_id, nurse_id=nurse_id,
+                provenance=make_provenance(
+                    source_update_ids=[update_id],
+                    transcript_excerpt=transcription,
+                ),
+            )
+
             # Step 7: Return success result
             print(f"\n{'='*60}")
             print(f"✅ Update processed successfully!")

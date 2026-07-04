@@ -1,4 +1,16 @@
-"""Coordinate all agents into a unified clinical handoff workflow."""
+"""Coordinate all agents into a unified clinical handoff workflow.
+
+⚠️ MARKED FOR RETIREMENT (trust stack Phase 2b, 2026-07).
+This module is NOT part of the live API path (backend/api.py has never
+imported it). Its two load-bearing pieces of logic were ported to
+backend/risk_pipeline.py, which the live path now uses:
+  - _calculate_overall_risk  → risk_pipeline.calculate_overall_risk
+    (identical 20/40/40 weighting; weights live in clinical_rules.py)
+  - _prioritize_actions      → risk_pipeline.prioritize_actions
+The only remaining importer is backend/test_coordinator.py (a legacy
+standalone test), which is why the file is kept rather than deleted. Do not
+add new callers; when test_coordinator.py is retired, delete this file with it.
+"""
 
 from __future__ import annotations
 

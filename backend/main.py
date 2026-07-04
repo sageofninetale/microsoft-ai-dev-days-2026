@@ -1,7 +1,13 @@
-"""FastAPI backend for patient handoff intake."""
+"""FastAPI backend for patient handoff intake.
+
+NOTE: backend/api.py is the CANONICAL application (full handoff workflow). This
+module is a minimal legacy intake-only endpoint retained for the hackathon demos.
+It shares the same locked-down CORS allowlist as api.py — see backend/config.py.
+"""
 
 from __future__ import annotations
 
+import logging
 import os
 from typing import Dict
 
@@ -10,7 +16,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from backend.intake_agent import PatientIntakeAgent, IntakeAgentError
+from backend.config import ALLOWED_ORIGINS
 
+log = logging.getLogger("cascadeai.intake")
 
 app = FastAPI(
     title="Patient Handoff Intake API",
@@ -18,10 +26,11 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# CORS middleware to allow frontend requests
+# CORS: explicit allowlist. Never "*" with allow_credentials=True (that lets any
+# origin make credentialed cross-site requests).
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, restrict to specific origins
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -83,10 +92,10 @@ async def process_handoff(request: HandoffTextRequest):
     except IntakeAgentError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(
-            status_code=500,
-            detail=f"An unexpected error occurred: {str(exc)}",
-        ) from exc
+        # Log the real error server-side; return a generic message to the caller so
+        # internal details / stack context are not leaked.
+        log.exception("Unexpected error processing handoff intake")
+        raise HTTPException(status_code=500, detail="An unexpected error occurred.") from exc
 
 
 if __name__ == "__main__":
