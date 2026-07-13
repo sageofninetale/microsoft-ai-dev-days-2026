@@ -14,11 +14,11 @@ from typing import Optional, List, Dict, Any, Literal
 from dotenv import load_dotenv
 
 # Ensure 'backend' package is importable whether we run from repo root or from backend/ dir.
-# On Azure App Service, the app root is the backend/ folder itself, so we add its parent to
-# sys.path so that `from xxx import ...` still works throughout the codebase.
+# Some deployment targets run with the backend/ folder itself as the app root, so we add
+# its parent to sys.path so that `from xxx import ...` still works throughout the codebase.
 _this_dir = Path(__file__).resolve().parent
 if _this_dir.name == "backend":
-    # Running from inside the backend directory (Azure) - add the parent so `backend` is a package
+    # Running from inside the backend directory - add the parent so `backend` is a package
     sys.path.insert(0, str(_this_dir.parent))
 # Also ensure the backend dir itself is on the path (for direct imports)
 if str(_this_dir) not in sys.path:
@@ -273,7 +273,7 @@ async def transcribe_audio(request: Request, payload: TranscribeAudioRequest):
             wav_path = None
             transcription = None
 
-            # Convert to WAV if not already WAV (needed for Azure Speech SDK)
+            # Convert to WAV if not already WAV (needed for Deepgram transcription below)
             audio_path_to_use = None
             if payload.format.lower() != 'wav':
                 wav_path = os.path.join(tmpdir, "input.wav")
