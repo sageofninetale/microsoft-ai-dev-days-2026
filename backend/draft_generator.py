@@ -384,6 +384,10 @@ SAFETY ALERT CHECKS — Always check for ALL of these:
 - Held or withheld medications and the reason
 - Pending critical lab results or imaging reports
 - Any deteriorating clinical trend
+- Patient identity mismatches — if the shift updates refer to a patient name that does
+  not match the EMR patient name given below, this is a CRITICAL safety issue (wrong
+  patient risk). Always raise a formal IDENTITY_MISMATCH safety alert for this — do not
+  only mention it in the narrative text, it must appear as its own safety_alerts entry.
 
 DRUG INTERACTION CHECKS — MUST be flagged if present: check every pair in the
 RETRIEVED GUIDELINE CONTEXT block below (in the user message) against the patient's
@@ -448,7 +452,7 @@ Return JSON:
   },
   "safety_alerts": [
     {
-      "type": "DRUG_INTERACTION|ABNORMAL_VITAL|ALLERGY|CRITICAL_LAB|HELD_MED|PENDING_RESULT",
+      "type": "DRUG_INTERACTION|ABNORMAL_VITAL|ALLERGY|CRITICAL_LAB|HELD_MED|PENDING_RESULT|IDENTITY_MISMATCH",
       "severity": "RED|ORANGE|YELLOW",
       "icon": "🔴|🟠|🟡",
       "message": "DrugA + DrugB: [mechanism of interaction] — patient is [current context] — risk of [specific harm]. Recommended action: [exact step to take].",
@@ -538,24 +542,29 @@ Analyze current clinical status, medications, vitals, safety alerts, and pending
 
         system_prompt = """You are a senior clinical documentation specialist. Generate a comprehensive, professional narrative handoff paragraph (250-400 words) that gives the incoming nurse a complete picture of this patient's shift.
 
-MANDATORY STRUCTURE — include every section:
-1. OPENING: "PatientName (PatientID, Room XXX, Age XX) had a [stable/eventful/concerning] shift with vital signs showing [brief summary] (HR X bpm, BP X/X mmHg, RR X, Temp X°F, SpO2 X%)." — RR (respiratory rate) MUST always be included alongside the other vitals.
-2. MEDICATIONS: "At HH:MM, [exact drug name and dose] was administered [route]; [note if held and why]. [State whether each drug is in the EMR or requires reconciliation]."
-3. KEY EVENTS: "At HH:MM, [procedure/test/consultation with findings]. At HH:MM, [next event]." — include EVERY event with its exact time
-4. CLINICAL CONTEXT: Explain any drug interactions, allergy conflicts, or clinical concerns with the reasoning (e.g. "Note that aspirin is an NSAID and patient has a documented NSAID allergy — requires urgent reconciliation")
-5. PENDING ITEMS: "The following are pending: [list each pending result, consultation, or action with context]."
-6. PATIENT STATUS: "The patient remains [description of current state — comfort, cooperation, mobility, mental status]."
-7. CRITICAL ACTION: "Critical action required: [the single most urgent task for the incoming nurse, with specific clinical reasoning]."
+MANDATORY STRUCTURE — include every section, IN THIS EXACT ORDER:
+1. OPENING: "PatientName (PatientID, Room XXX, Age XX) had a [stable/eventful/concerning] shift with vital signs showing [brief summary] (HR X bpm, BP X/X mmHg, RR X, Temp X°F, SpO2 X%)." — RR (respiratory rate) MUST always be included alongside the other vitals. STATE FACTS ONLY here — do not include any instruction or action ("obtain vitals," "notify," etc.) in the opening sentence; that belongs only in section 2. If one or more vitals are missing/not recorded, do NOT call the shift "stable" — call it "incomplete" or "vitals not recorded" instead, since stability cannot be assessed without the data.
+2. CRITICAL ACTION — STATE THIS SECOND, IMMEDIATELY AFTER THE OPENING, NEVER AT THE END, STATED EXACTLY ONCE: "Critical action required: [a specific, concrete instruction — what to do, e.g. notify a specific role, hold/restart a specific drug, escalate at a specific threshold]." A nurse reading only the first two sentences of this paragraph must already know the single most urgent thing to do, stated as an instruction, not a topic. Do not bury this behind medication lists, event logs, or general clinical context — those come after, as supporting detail, not before. This is the ONLY place in the whole paragraph an instruction/action verb belongs — do not repeat or rephrase this same instruction anywhere else in the paragraph.
+   - BANNED in this section: "may be indicated," "should be considered," "not specified," "this must be clarified," or any phrasing that names a topic without naming the action. If a decision genuinely still needs a clinician's input, state exactly what decision is pending and who must make it (e.g. "Notify the attending to decide whether amlodipine should be restarted" — not "this must be clarified with the physician").
+3. MEDICATIONS: "At HH:MM, [exact drug name and dose] was administered [route]; [note if held and why]. [State whether each drug is in the EMR or requires reconciliation]."
+4. KEY EVENTS: "At HH:MM, [procedure/test/consultation with findings]. At HH:MM, [next event]." — include EVERY event with its exact time
+5. CLINICAL CONTEXT: State the drug interaction, allergy conflict, or clinical concern and its risk in ONE plain sentence — the fact and the risk, not a teaching explanation of the underlying mechanism (e.g. write "Clarithromycin raises simvastatin levels — risk of muscle injury" not a paragraph explaining CYP3A4 enzyme inhibition).
+6. PENDING ITEMS: "The following are pending: [list each pending result, consultation, or action with context]."
+7. PATIENT STATUS: "The patient remains [description of current state — comfort, cooperation, mobility, mental status]."
 
 QUALITY RULES:
 - Always include exact drug names, doses, and routes — never say "medication was given"
 - Always include exact vital values — never say "vitals were recorded"
-- Always explain WHY something is clinically significant
+- Always explain WHY something is clinically significant, in one plain sentence — not a multi-sentence academic/pathophysiology explanation
 - Always mention family communication if it occurred
 - Always mention consultations and whether results are back or pending
 - The incoming nurse should be able to read this paragraph and know everything that happened without looking at any other section
+- Never state the critical action only in the final sentence — a nurse skimming should catch it in the first two sentences, not discover it after reading through routine documentation
+- Never contradict yourself: if a vital sign or fact was not recorded/available, say plainly that it is missing and why that itself is a concern — do not simultaneously describe the patient as "stable" or the shift as routine when a required value is missing
+- Never restate the same fact, gap, or concern in more than one section. If vitals are missing, say so ONCE, in whichever single section fits best (usually OPENING or CRITICAL ACTION) — do not also repeat "not documented"/"not recorded"/"should be assessed" for the same missing item again in MEDICATIONS, CLINICAL CONTEXT, PENDING ITEMS, or PATIENT STATUS. Each section adds NEW information; none of them re-explain what an earlier section already said.
+- Do not write in a checklist or audit tone (repeated "not documented," "not recorded," "should be assessed" across multiple sentences). Write it as a nurse describing what happened and what to do — a paragraph, not a list of gaps.
 
-TONE: Professional clinical handoff — clear, specific, no ambiguity
+TONE: Write the way one experienced nurse briefs another nurse taking over — direct, spoken-register clinical language a nurse actually uses on shift. Use correct clinical terms (drug names, vital signs, conditions) but never lecture-style explanation of mechanisms. No hedging words ("may," "should be considered," "possibly indicated") where a plain statement of fact and action is possible. Not vague, not overly technical — clear enough that a tired nurse at 6am reads it once and knows exactly what to do.
 
 Return JSON: {"narrative_summary": "Your 250-400 word paragraph here"}"""
 
@@ -580,6 +589,34 @@ Generate 250-400 word narrative handoff summary."""
 
         elapsed = time.time() - start
         print(f"   📝 Narrative call: {elapsed:.2f}s")
+
+        # Self-correction pass: free-text generation is not perfectly consistent
+        # run to run, even with a good prompt — the same instructions can produce
+        # a clean paragraph one time and a repetitive/buried/hedgy one the next.
+        # Rather than trying to write a "perfect" prompt that prevents every
+        # possible bad draft (not realistic for open-ended writing), check the
+        # AI's own first attempt with the same rubric-based judge used in the
+        # eval pack, and give it exactly one chance to rewrite with specific
+        # feedback if the first draft genuinely failed. Only fires on a hard
+        # fail (score 1) — a mediocre-but-acceptable draft (score 3) is left
+        # alone, to avoid a retry call on every single report.
+        narrative_text = result.get("narrative_summary", "")
+        if narrative_text:
+            from eval_pack.llm_judge_graders import judge_narrative_summary
+            judge_passed, judge_detail = judge_narrative_summary(
+                {"narrative_summary": narrative_text}, {}
+            )
+            if not judge_passed:
+                print(f"   🔁 Narrative failed quality check ({judge_detail[:100]}...) — retrying once")
+                retry_prompt = (
+                    user_prompt
+                    + f"\n\nYour previous attempt at this paragraph was reviewed and scored "
+                      f"poorly: {judge_detail}\nWrite it again, specifically fixing that issue, "
+                      f"while still following every rule above."
+                )
+                retry_result = ask_llm(system_prompt, retry_prompt)
+                if retry_result.get("narrative_summary"):
+                    result = retry_result
 
         # Return the RAW dict — the schema gate in _generate_handoff_summary_async
         # validates it (narrative_summary present + non-empty). The old

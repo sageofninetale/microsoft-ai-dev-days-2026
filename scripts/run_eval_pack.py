@@ -81,6 +81,7 @@ def run_live(verbose: bool) -> list[dict]:
 
     from draft_generator import DraftGenerator
     from models import PatientUpdate
+    from eval_pack.llm_judge_graders import judge_narrative_summary
 
     generator = DraftGenerator()
     results = []
@@ -102,14 +103,24 @@ def run_live(verbose: bool) -> list[dict]:
                 sc["emr_state"], organized, len(updates)))
             graded = grade_report(report, sc["expected"])
             failures = [r for r in graded if not r["passed"]]
+
+            # LLM-as-judge (Aryan's 6 Jul rubric) — live mode only, see
+            # backend/eval_pack/llm_judge_graders.py. Runs one extra Anthropic
+            # call per scenario; never added to the free offline path.
+            judge_passed, judge_detail = judge_narrative_summary(report, {})
+            if not judge_passed:
+                failures.append({"grader": "llm_judge:narrative_quality", "detail": judge_detail})
+
             passed = not failures
         except Exception as exc:
             passed, failures = False, [{"grader": "generation", "detail": str(exc)}]
+            judge_detail = None
 
         results.append({
             "id": sc["id"], "title": sc["title"], "category": sc["category"],
             "source": sc["source"], "mode": "live", "passed": passed,
             "failures": [f"{r['grader']}: {r['detail']}" for r in failures],
+            "llm_judge": judge_detail,
         })
         icon = "✅" if passed else "❌"
         print(f"  {icon} {sc['id']:16} {sc['title'][:70]}")

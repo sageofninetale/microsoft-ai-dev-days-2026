@@ -363,7 +363,9 @@ def check_safety_alerts_have_actions(report: Dict) -> CheckResult:
             msg = a.get("message", "").lower()
             if not any(kw in msg for kw in
                        ["review", "notify", "monitor", "escalate",
-                        "obtain", "reassess", "action", "consider"]):
+                        "obtain", "reassess", "action", "consider",
+                        "verify", "confirm", "complete", "clarify",
+                        "determine", "assess", "document"]):
                 actionless.append(msg[:60])
     if actionless:
         return False, f"{len(actionless)} alert(s) missing recommended action"
@@ -449,8 +451,9 @@ def check_pending_actions_have_verbs(report: Dict) -> CheckResult:
              "escalate", "review", "reconcile", "request", "adjust", "assess",
              "check", "verify", "perform", "initiate", "establish", "contact",
              "continue", "discontinue", "administer", "start", "stop",
-             "document", "ensure", "confirm", "recheck", "repeat", "consider",
-             "prepare", "evaluate"]
+             "document", "documenting", "ensure", "confirm", "recheck", "repeat",
+             "consider", "prepare", "evaluate", "complete", "clarify",
+             "determine", "educate"]
     weak = []
     for a in actions:
         text = (a.get("action", "") if isinstance(a, dict) else str(a)).lower()
