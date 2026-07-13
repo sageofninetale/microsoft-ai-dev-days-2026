@@ -37,3 +37,7 @@ requests==2.33.0
 
 # PyAV: FFmpeg Python bindings — includes compiled codecs (webm/opus decode).
 av==12.3.0
+
+# MCP client — draft_generator.py's guideline_client.py connects to the standalone
+# nhs-guideline-mcp server (drug-interaction guideline search) over streamable-http.
+mcp>=1.2.0
