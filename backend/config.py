@@ -18,7 +18,6 @@ _DEFAULT_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",
     "http://localhost:8888",
     "http://127.0.0.1:8888",
-    "https://happy-sand-07c137903.6.azurestaticapps.net",
 ]
 
 _env_origins = os.getenv("ALLOWED_ORIGINS")
